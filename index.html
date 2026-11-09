@@ -179,7 +179,9 @@ const ringR=a=>230+34*Math.sin(3*a+.4)+16*Math.sin(5*a+1.3)+7*Math.sin(9*a+2.1);
 function ground(x,z){
   const a=Math.atan2(z,x), d=Math.abs(Math.hypot(x,z)-ringR(a));
   const w=15+9*vnoise(a*7+3,.5), t=Math.max(0,d-w);
-  return Math.pow(t/36,1.55)*15 + (fbm(x*.012+7,z*.012-3)-.5)*7 + fbm(x*.06,z*.06)*1.4;
+  // hills rise from the valley floor and level off at a ridgeline whose height wanders, leaving saddles between peaks
+  const raw=Math.pow(t/36,1.55)*15, cap=24+110*Math.pow(fbm(x*.0075+40,z*.0075-12),1.8);
+  return cap*(1-Math.exp(-raw/cap)) + (fbm(x*.012+7,z*.012-3)-.5)*7 + fbm(x*.06,z*.06)*1.4;
 }
 
 function boot(){
@@ -236,7 +238,7 @@ function boot(){
 
   const U_TIME={value:0};
   /* moon: dim, behind slow drifting clouds, fixed in the sky */
-  const moon=new THREE.Mesh(new THREE.PlaneGeometry(420,420),new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,fog:false,blending:THREE.AdditiveBlending,
+  const moon=new THREE.Mesh(new THREE.PlaneGeometry(420,420),new THREE.ShaderMaterial({transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending,
     uniforms:{uTime:U_TIME},
     vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
     fragmentShader:`uniform float uTime;varying vec2 vUv;
@@ -263,10 +265,24 @@ function boot(){
         gl_FragColor=vec4(col*edge,1.);
       }`}));
   moon.frustumCulled=false; moon.renderOrder=-1; scene.add(moon);
-  // fixed point in the sky: up and to the left of where the walk begins
-  const moonDir=(()=>{const a=pathAt(0,new THREE.Vector3()),b=pathAt(14,new THREE.Vector3());
-    const f=new THREE.Vector3(b.x-a.x,0,b.z-a.z).normalize(), rt=f.clone().cross(new THREE.Vector3(0,1,0)), az=.32, el=.44;
-    return f.multiplyScalar(Math.cos(el)*Math.cos(az)).addScaledVector(rt,-Math.cos(el)*Math.sin(az)).add(new THREE.Vector3(0,Math.sin(el),0)).normalize()})();
+  // fixed point in the sky, set into the deepest dip between the hills seen from the start of the walk
+  const moonDir=(()=>{
+    const a=pathAt(10,new THREE.Vector3()), b=pathAt(24,new THREE.Vector3()), eye=a.y+2.5;
+    const f=new THREE.Vector3(b.x-a.x,0,b.z-a.z).normalize(), rt=f.clone().cross(new THREE.Vector3(0,1,0));
+    const deg=Math.PI/180, H=[], AZ=[];
+    for(let i=-42;i<=42;i++){                       // horizon height for each heading, about ±42° around forward
+      const az=i*deg, dx=f.x*Math.cos(az)+rt.x*Math.sin(az), dz=f.z*Math.cos(az)+rt.z*Math.sin(az);
+      let m=-1; for(let d=10;d<620;d+=3){const x=a.x+dx*d,z=a.z+dz*d;if(Math.abs(x)>408||Math.abs(z)>408)break;m=Math.max(m,Math.atan2(ground(x,z)-eye,d))}
+      H.push(m); AZ.push(az);
+    }
+    let bi=-1, bs=0;
+    for(let i=10;i<H.length-10;i++){               // dip = low point with higher hills on both sides
+      let l=-1,r=-1; for(let k=1;k<=10;k++){l=Math.max(l,H[i-k]);r=Math.max(r,H[i+k])}
+      const score=Math.min(l,r)-H[i]-Math.abs(AZ[i])*.02;
+      if(H[i]<.42&&score>bs){bs=score;bi=i}
+    }
+    const az=bi<0?-.32:AZ[bi], el=bi<0?.44:Math.max(.06,H[bi]+.032);
+    return f.multiplyScalar(Math.cos(el)*Math.cos(az)).addScaledVector(rt,Math.cos(el)*Math.sin(az)).add(new THREE.Vector3(0,Math.sin(el),0)).normalize()})();
 
   /* flowers + leaves */
   const NF=SMALL?24000:52000, NL=SMALL?14000:30000, N=NF+NL;
@@ -388,7 +404,7 @@ function boot(){
     const lx=(331/400-.5)*WW, ly=(1-599/1000)*WH;
     glow.position.set(lx,ly,.05); glow.scale.set(1.5,1.5,1); wanderer.add(glow);
     const lamp=new THREE.PointLight(0xb9a6ff,6,14,2); lamp.position.set(lx,ly,.3); wanderer.add(lamp);
-    wanderer.userData.glow=glow;
+    wanderer.userData.glow=glow; wanderer.userData.body=body;
     // Your own figure: put a transparent-background PNG named gardener.png next to this page
     // and it replaces the drawn wanderer (kept 3.6 units tall, width from the image's shape).
     new THREE.TextureLoader().load('gardener.png',t=>{
@@ -396,7 +412,7 @@ function boot(){
       const h=3.6, w=h*t.image.width/t.image.height;
       body.geometry.dispose(); body.geometry=new THREE.PlaneGeometry(w,h).translate(0,h/2,0);
       body.material.map=t; body.material.color.set(0xd6d8e6); body.material.needsUpdate=true;
-      glow.visible=false; lamp.intensity=2.5; lamp.position.set(0,h*.6,1.2);
+      glow.visible=false; lamp.visible=false;
     },undefined,()=>{/* no gardener.png: keep the drawn wanderer */});
     // place it about 55 units into the walk, 7 units to the left of the path
     const a=pathAt(55,new THREE.Vector3()), b=pathAt(56,new THREE.Vector3());
@@ -439,9 +455,16 @@ function boot(){
   dust.frustumCulled=false; scene.add(dust);
 
   /* post-processing: bloom, split-RGB noise, speed vignette */
+  const bloomComposer=new EffectComposer(renderer); bloomComposer.renderToScreen=false;
+  bloomComposer.setPixelRatio(DPR*.5); bloomComposer.setSize(innerWidth,innerHeight);
+  bloomComposer.addPass(new RenderPass(scene,camera));
+  const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.75,.55,.22); bloomComposer.addPass(bloom);
   const composer=new EffectComposer(renderer); composer.setPixelRatio(DPR); composer.setSize(innerWidth,innerHeight);
   composer.addPass(new RenderPass(scene,camera));
-  const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.75,.55,.22); composer.addPass(bloom);
+  composer.addPass(new ShaderPass({uniforms:{tDiffuse:{value:null},tBloom:{value:bloomComposer.renderTarget2.texture}},
+    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader:`uniform sampler2D tDiffuse,tBloom;varying vec2 vUv;void main(){gl_FragColor=texture2D(tDiffuse,vUv)+vec4(texture2D(tBloom,vUv).rgb,0.);}`}));
+  const blackout=new THREE.MeshBasicMaterial({color:0x000000,alphaTest:.5,fog:false});
   const fx=new ShaderPass({uniforms:{tDiffuse:{value:null},uTime:{value:0},uSpeed:{value:0}},
     vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
     fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime,uSpeed;varying vec2 vUv;
@@ -456,7 +479,7 @@ function boot(){
 
   function resize(){
     const w=innerWidth,h=innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();
-    renderer.setSize(w,h);composer.setSize(w,h);bloom.setSize(w,h);
+    renderer.setSize(w,h);composer.setSize(w,h);bloomComposer.setSize(w,h);
     U.uScale.value=h*DPR/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)));U.uAspect.value=w/h;
   }
   addEventListener('resize',resize); resize();
@@ -530,6 +553,8 @@ function boot(){
     fx.uniforms.uTime.value=time; fx.uniforms.uSpeed.value=speed;
     bloom.strength=.75+hover*.4;
 
+    { const b=wanderer.userData.body, m=b.material; blackout.map=m.map; blackout.needsUpdate=blackout.userData.map!==m.map; blackout.userData.map=m.map;
+      b.material=blackout; bloomComposer.render(); b.material=m; }
     composer.render();
     if(first){first=false;requestAnimationFrame(()=>loaderEl.classList.add('gone'))}
     if(!introDone&&it>=.92){introDone=true;uiEl.classList.add('on')}
