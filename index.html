@@ -40,7 +40,7 @@ h1{font:400 calc(158*var(--u))/.92 Antonio,"Arial Narrow",sans-serif;letter-spac
 .dot{width:calc(10*var(--u));height:calc(10*var(--u));min-width:7px;min-height:7px;border-radius:50%;background:currentColor;transition:transform .3s}
 .go:hover .dot{transform:scale(1.25)}
 .hint-touch{display:none}
-@media (hover:none) and (pointer:coarse){.hint-desk{display:none}.hint-touch{display:inline}}
+@media (hover:none) and (pointer:coarse){.hint-desk{display:none!important}.hint-touch{display:inline}}
 .go{display:grid;place-items:center;width:calc(58*var(--u));height:calc(58*var(--u));border:1.5px solid var(--cream);border-radius:50%;transition:background .3s,color .3s}
 .go:hover{background:var(--cream);color:#151510}
 .corner{position:absolute;right:calc(44*var(--u));bottom:calc(44*var(--u));display:flex;align-items:center;gap:calc(18*var(--u));font-size:calc(12.5*var(--u));font-weight:500;letter-spacing:.16em;text-transform:uppercase}
@@ -64,7 +64,8 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--cream);outline-offs
   h1{font-size:clamp(64px,19vw,96px);white-space:normal}
   .corner{left:20px;right:20px;bottom:calc(26px + env(safe-area-inset-bottom));justify-content:center;font-size:11px}
   .hero{top:auto;bottom:calc(84px + env(safe-area-inset-bottom));transform:none}
-  .steps{gap:22px;margin-bottom:16px}
+  .steps{position:absolute;right:0;bottom:0;flex-direction:column-reverse;gap:12px;margin:0}
+  .step svg{transform:rotate(-90deg)}
   .step{width:52px;height:52px}.step svg{width:20px;height:20px}
   .go{width:58px;height:58px}
   .sound{width:30px;height:30px}
@@ -89,9 +90,9 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--cream);outline-offs
       <button class="step" id="back" aria-label="Walk back"><svg viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg></button>
       <button class="step" id="fwd" aria-label="Walk forward"><svg viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></button>
     </div>
-    <a class="go" href="#" id="go" aria-label="Pause and scatter the flowers"><span class="dot"></span></a>
+    <button class="go" id="go" aria-label="Pause and scatter the flowers"><span class="dot"></span></button>
   </section>
-  <div class="corner"><span class="hint-desk">Scroll to wander</span><span class="hint-touch">Drag to look around</span><i></i>
+  <div class="corner"><span class="hint-desk">Scroll to wander</span><i class="hint-desk"></i><span class="hint-desk">Drag to look</span><span class="hint-touch">Drag to look around</span><i></i>
     <button class="sound" id="sound" aria-pressed="false" aria-label="Ambient sound"><svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5Z"/><path class="w" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="m16 10 4 4m0-4-4 4"/></svg></button>
   </div>
 </div>
@@ -326,10 +327,10 @@ function boot(){
   FG.setAttribute('color',new THREE.BufferAttribute(fc,3));
   FG.setAttribute('aSeed',new THREE.BufferAttribute(fs,4));
   const U={uTime:{value:0},uScale:{value:1},uIntro:{value:0},uDisperse:{value:0},uAspect:{value:1},
-    uMouse:{value:new THREE.Vector2(0,0)},uMouseOn:{value:0},uCam:{value:new THREE.Vector3()},uMaxPx:{value:(SMALL?60:72)*DPR},uNear:{value:new THREE.Vector2(1.2,5.)}};
+    uMouse:{value:new THREE.Vector2(0,0)},uMouseOn:{value:0},uMouse2:{value:new THREE.Vector2(0,0)},uMouseOn2:{value:0},uCam:{value:new THREE.Vector3()},uMaxPx:{value:(SMALL?60:72)*DPR},uNear:{value:new THREE.Vector2(1.2,5.)}};
   const flowers=new THREE.Points(FG,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
     vertexShader:`
-      uniform float uTime,uScale,uIntro,uDisperse,uAspect,uMouseOn,uMaxPx;uniform vec2 uMouse,uNear;uniform vec3 uCam;
+      uniform float uTime,uScale,uIntro,uDisperse,uAspect,uMouseOn,uMouseOn2,uMaxPx;uniform vec2 uMouse,uMouse2,uNear;uniform vec3 uCam;
       attribute vec3 color;attribute vec4 aSeed;
       varying vec3 vColor;varying float vBloom,vGlow,vType,vRot,vPetals,vAlpha;
       void main(){
@@ -348,10 +349,12 @@ function boot(){
         float ws=type<.5?(.5+seed*.55)*mix(.2,1.,bloom):(.75+seed*.7)*mix(.25,1.,leafGrow);
         ws*=intro;ws=mix(ws,.14+seed*.16,D);
         vec4 clip=projectionMatrix*mv;
-        vec2 ndc=clip.xy/clip.w;vec2 diff=(ndc-uMouse)*vec2(uAspect,1.);float md=length(diff);
-        float push=exp(-md*md*12.)*.1*uMouseOn*step(0.,clip.w);
-        ndc+=(diff/(md+1e-4))*push/vec2(uAspect,1.);clip.xy=ndc*clip.w;gl_Position=clip;
-        vGlow=exp(-md*md*35.)*uMouseOn;
+        vec2 ndc=clip.xy/clip.w;float vis=step(0.,clip.w);
+        vec2 d1=(ndc-uMouse)*vec2(uAspect,1.),d2=(ndc-uMouse2)*vec2(uAspect,1.);float m1=length(d1),m2=length(d2);
+        ndc+=(d1/(m1+1e-4))*exp(-m1*m1*12.)*.1*uMouseOn*vis/vec2(uAspect,1.);
+        ndc+=(d2/(m2+1e-4))*exp(-m2*m2*12.)*.1*uMouseOn2*vis/vec2(uAspect,1.);
+        clip.xy=ndc*clip.w;gl_Position=clip;
+        vGlow=min(1.,exp(-m1*m1*35.)*uMouseOn+exp(-m2*m2*35.)*uMouseOn2);
         gl_PointSize=clamp(ws*uScale/max(dist,.01),0.,uMaxPx);
         vAlpha=smoothstep(uNear.x,uNear.y,dist)*exp(-pow(dist*.0115,1.5))*intro;
         vColor=color;vBloom=bloom;vType=type;vRot=aSeed.y+sin(uTime*.3+seed*9.)*.15;vPetals=aSeed.z;
@@ -506,26 +509,31 @@ function boot(){
   const BASE=.0035, WHEEL=10, TOUCH=20;
   let target=0, cur=0, prev=0, speed=0, hover=0, hoverT=0;
   addEventListener('wheel',e=>{e.preventDefault();const k=e.deltaMode===1?16:e.deltaMode===2?innerHeight:1;target-=e.deltaY*k*BASE*WHEEL},{passive:false});
-  addEventListener('touchstart',e=>{setMouse(e.touches[0])},{passive:true});
-  addEventListener('touchmove',e=>{setMouse(e.touches[0])},{passive:true});
-  addEventListener('touchend',()=>{mouseOnT=0});
+  const touchPts=e=>{const t=e.touches;
+    if(t[0]){setMouse(t[0],true)}else mouseOnT=0;
+    if(t[1]){mouse2T.set(t[1].clientX/innerWidth*2-1,-(t[1].clientY/innerHeight)*2+1);if(!mouse2On)mouse2S.copy(mouse2T);mouse2On=1}else mouse2On=0};
+  addEventListener('touchstart',touchPts,{passive:true}); addEventListener('touchmove',touchPts,{passive:true});
+  addEventListener('touchend',touchPts); addEventListener('touchcancel',touchPts);
   addEventListener('keydown',e=>{const s={ArrowUp:6,PageUp:20,' ':12,ArrowDown:-6,PageDown:-20}[e.key];if(s&&e.target===document.body){e.preventDefault();target+=s}});
-  const mouseT=new THREE.Vector2(), mouseS=new THREE.Vector2(); let mouseOnT=0;
-  function setMouse(p){mouseT.set(p.clientX/innerWidth*2-1,-(p.clientY/innerHeight)*2+1);mouseOnT=1}
+  const mouseT=new THREE.Vector2(), mouseS=new THREE.Vector2(), mouse2T=new THREE.Vector2(), mouse2S=new THREE.Vector2(), tiltT=new THREE.Vector2(), tilt=new THREE.Vector2();
+  let mouseOnT=0, mouse2On=0;
+  // touches push flowers but don't tilt the camera; a mouse does both
+  function setMouse(p,touch){mouseT.set(p.clientX/innerWidth*2-1,-(p.clientY/innerHeight)*2+1);mouseOnT=1;if(!touch)tiltT.copy(mouseT)}
   addEventListener('pointermove',e=>{if(e.pointerType!=='touch')setMouse(e)});
   document.documentElement.addEventListener('pointerleave',()=>{mouseOnT=0});
   // drag to look around (mouse or finger): turn and tilt; double-click or double-tap faces forward again
   let yawT=0, pitchT=0, yaw=0, pitch=0, drag=null, vYaw=0, vPitch=0, lastMove=0;
-  let lastTap=0;
+  let lastTap=0, isTouch=false;
+  addEventListener('pointerdown',e=>{isTouch=e.pointerType==='touch'},true);
   const recenter=()=>{vYaw=vPitch=0;yawT=Math.round(yaw/(2*Math.PI))*2*Math.PI;pitchT=0};
-  addEventListener('pointerdown',e=>{if(e.target.closest('a,button')||(e.pointerType==='mouse'&&e.button!==0))return;drag={x:e.clientX,y:e.clientY,touch:e.pointerType==='touch'};vYaw=vPitch=0;lastMove=performance.now();document.documentElement.classList.add('dragging');
+  addEventListener('pointerdown',e=>{if(e.target.closest('a,button')||(e.pointerType==='mouse'&&e.button!==0))return;if(drag)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY,touch:e.pointerType==='touch'};vYaw=vPitch=0;lastMove=performance.now();document.documentElement.classList.add('dragging');
     if(e.pointerType==='touch'){const n=performance.now();if(n-lastTap<300)recenter();lastTap=n}});
-  addEventListener('pointermove',e=>{if(!drag)return;const k=1.15*Math.PI/innerHeight*(64/90),dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
-    const kk=drag.touch?k*1.25:k, n=performance.now(), el=Math.max(8,n-lastMove)/1000; lastMove=n;
+  addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;const k=1.15*Math.PI/innerHeight*(64/90),dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+    const kk=(drag.touch?k*1.05:k)*.85, n=performance.now(), el=Math.max(8,n-lastMove)/1000; lastMove=n;
     yawT+=dx*kk; pitchT=Math.max(-.75,Math.min(1.05,pitchT+dy*kk));
     // remember how fast the finger was moving, for a gentle glide after letting go
-    vYaw+=(dx*kk/el-vYaw)*.35; vPitch+=(dy*kk/el-vPitch)*.35});
-  const endDrag=()=>{if(drag&&performance.now()-lastMove>90){vYaw=vPitch=0}drag=null;document.documentElement.classList.remove('dragging')};
+    vYaw+=(dx*kk/el*.45-vYaw)*.35; vPitch+=(dy*kk/el*.45-vPitch)*.35});
+  const endDrag=e=>{if(drag&&e&&e.pointerId!==drag.id)return;if(drag&&performance.now()-lastMove>60){vYaw=vPitch=0}drag=null;document.documentElement.classList.remove('dragging')};
   addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
   addEventListener('dblclick',e=>{if(!e.target.closest('a,button'))recenter()});
   let walk=0;
@@ -540,9 +548,9 @@ function boot(){
   const go=$('go');
   go.addEventListener('pointerenter',()=>{hoverT=1;audio.muffle(true)});
   go.addEventListener('pointerleave',()=>{hoverT=0;audio.muffle(false)});
-  go.addEventListener('focus',()=>{hoverT=1;audio.muffle(true)});
+  go.addEventListener('focus',()=>{if(go.matches(':focus-visible')){hoverT=1;audio.muffle(true)}});
   go.addEventListener('blur',()=>{hoverT=0;audio.muffle(false)});
-  go.addEventListener('click',e=>e.preventDefault());
+  go.addEventListener('contextmenu',e=>e.preventDefault());
 
   /* loop */
   const clock=new THREE.Clock(), INTRO=4.2;
@@ -560,24 +568,27 @@ function boot(){
     cur+=(target-cur)*(1-Math.exp(-dt*2.4));
     const v=Math.abs(cur-prev)/Math.max(dt,1e-4); prev=cur;
     speed+=(Math.min(1,v/30)-speed)*(1-Math.exp(-dt*3));
-    mouseS.lerp(mouseT,1-Math.exp(-dt*4));
+    mouseS.lerp(mouseT,1-Math.exp(-dt*(isTouch?8:4)));
     U.uMouseOn.value+=(mouseOnT-U.uMouseOn.value)*(1-Math.exp(-dt*3));
     U.uMouse.value.copy(mouseS);
+    mouse2S.lerp(mouse2T,1-Math.exp(-dt*8)); U.uMouse2.value.copy(mouse2S);
+    U.uMouseOn2.value+=(mouse2On-U.uMouseOn2.value)*(1-Math.exp(-dt*4));
+    tilt.lerp(tiltT,1-Math.exp(-dt*4));
 
     const s=cur-(1-ie)*45;
     pathAt(s,cp); pathAt(s+14,lp);
     right.set(lp.x-cp.x,0,lp.z-cp.z).normalize().cross(up);
     camera.position.set(cp.x,cp.y+2.5+(1-ie)*34+Math.sin(time*.5)*.08,cp.z);
-    la.copy(lp).addScaledVector(up,1.4-(1-ie)*6+mouseS.y*1.8).addScaledVector(right,mouseS.x*3.2);
+    la.copy(lp).addScaledVector(up,1.4-(1-ie)*6+tilt.y*1.8).addScaledVector(right,tilt.x*3.2);
     camera.lookAt(la);
     if(!drag&&(vYaw||vPitch)){                       // glide after a flick, easing to a stop
       yawT+=vYaw*dt; pitchT=Math.max(-.75,Math.min(1.05,pitchT+vPitch*dt));
-      const f=Math.exp(-dt*3.2); vYaw*=f; vPitch*=f; if(Math.abs(vYaw)+Math.abs(vPitch)<.01) vYaw=vPitch=0;
+      const f=Math.exp(-dt*7.5); vYaw*=f; vPitch*=f; if(Math.abs(vYaw)+Math.abs(vPitch)<.01) vYaw=vPitch=0;
     }
-    const lookRate=drag?14:8;
+    const lookRate=drag?22:12;
     yaw+=(yawT-yaw)*(1-Math.exp(-dt*lookRate)); pitch+=(pitchT-pitch)*(1-Math.exp(-dt*lookRate));
     camera.rotateOnWorldAxis(up,yaw); camera.rotateX(pitch);
-    camera.rotateZ(-mouseS.x*.025);
+    camera.rotateZ(-tilt.x*.025);
     wanderer.rotation.y=Math.atan2(camera.position.x-wanderer.position.x,camera.position.z-wanderer.position.z);
     wanderer.userData.glow.material.opacity=.85+.15*Math.sin(time*2.3)*Math.sin(time*1.7+1.);
 
