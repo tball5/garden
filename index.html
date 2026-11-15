@@ -1,617 +1,1804 @@
 <!DOCTYPE html>
+<!--
+  THE GARDEN
+  A night valley of glowing flowers you wander through.
+
+  - One file. No images, models or audio files: everything is generated when the page loads.
+  - three.js r186 from jsDelivr. Every room should load three.js from exactly these addresses
+    (same version, same files) so phones download it once and reuse it from cache.
+  - Optional: put a transparent-background PNG named gardener.png next to this file and it
+    replaces the hooded wanderer standing in the flowers.
+  - Add #fps to the address (or press F) to show a frames-per-second readout.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Garden</title>
 <meta name="description" content="Wander through a night valley of flowers that grows as you move.">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400&family=Manrope:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500&display=swap" rel="stylesheet">
+
 <style>
-:root{--u:min(calc(100vw/1600),calc(100vh/900));--cream:#f5efe2}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#000;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
-body{color:var(--cream);font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased;touch-action:none}
-body.nogl{background:radial-gradient(120% 80% at 50% 100%,#0d2a26 0%,#05100f 45%,#000 80%)}
-a{color:inherit;text-decoration:none}
-button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-#valley{position:fixed;inset:0}
-html{cursor:grab}html.dragging{cursor:grabbing}
-.js-canvas-container{position:absolute;inset:0}
-.js-canvas-container canvas{display:block;width:100%!important;height:100%!important}
-.ui{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:0;transition:opacity 1.6s ease}
-.ui.on{opacity:1}
-.ui a,.ui button{pointer-events:auto}
-header{position:absolute;left:0;right:0;top:env(safe-area-inset-top,0);display:flex;align-items:center;justify-content:space-between;padding:calc(24*var(--u)) calc(44*var(--u)) 0}
-.logo{font-size:calc(26*var(--u));font-weight:500;letter-spacing:-.02em}
-nav{display:flex;align-items:center;gap:calc(44*var(--u));font-size:calc(14.5*var(--u));font-weight:500;letter-spacing:.16em;text-transform:uppercase}
-nav a:not(.pill){transition:opacity .2s}nav a:not(.pill):hover{opacity:.6}
-.pill{display:inline-flex;align-items:center;height:calc(46*var(--u));padding:0 calc(26*var(--u));border-radius:99px;background:var(--cream);color:#151510;transition:transform .25s}
-.pill:hover{transform:translateY(-1px)}
-.hero{position:absolute;left:0;right:0;top:50%;transform:translateY(-46%);display:flex;flex-direction:column;align-items:center;text-align:center}
-h1{font:400 calc(158*var(--u))/.92 Antonio,"Arial Narrow",sans-serif;letter-spacing:-.012em;white-space:nowrap;text-shadow:0 0 40px rgba(0,0,0,.35)}
-.steps{display:flex;gap:calc(16*var(--u));margin-bottom:calc(18*var(--u))}
-.step{display:grid;place-items:center;width:calc(46*var(--u));height:calc(46*var(--u));border-radius:50%;border:1.5px solid rgba(245,239,226,.55);background:rgba(0,0,0,.18);transition:background .25s,color .25s,border-color .25s,transform .15s}
-.step:hover{border-color:var(--cream)}
-.step.held,.step:active{background:var(--cream);color:#151510;border-color:var(--cream);transform:scale(.94)}
-.step svg{width:calc(18*var(--u));height:calc(18*var(--u));fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.ui button,.ui a{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.dot{width:calc(10*var(--u));height:calc(10*var(--u));min-width:7px;min-height:7px;border-radius:50%;background:currentColor;transition:transform .3s}
-.go:hover .dot{transform:scale(1.25)}
-.hint-touch{display:none}
-@media (hover:none) and (pointer:coarse){.hint-desk{display:none!important}.hint-touch{display:inline}}
-.go{display:grid;place-items:center;width:calc(58*var(--u));height:calc(58*var(--u));border:1.5px solid var(--cream);border-radius:50%;transition:background .3s,color .3s}
-.go:hover{background:var(--cream);color:#151510}
-.corner{position:absolute;right:calc(44*var(--u));bottom:calc(44*var(--u));display:flex;align-items:center;gap:calc(18*var(--u));font-size:calc(12.5*var(--u));font-weight:500;letter-spacing:.16em;text-transform:uppercase}
-.corner i{width:1px;height:calc(26*var(--u));background:rgba(245,239,226,.45)}
-.sound{display:grid;place-items:center;width:calc(28*var(--u));height:calc(28*var(--u))}
-.sound svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.sound .w,.sound .x{transition:opacity .3s}
-.sound[aria-pressed=false] .w{opacity:0}
-.sound[aria-pressed=true] .x{opacity:0}
-.loader{position:fixed;inset:0;z-index:3;display:grid;place-items:center;background:#000;transition:opacity 1s ease;pointer-events:none}
-.loader.gone{opacity:0}
-.loader span{width:calc(9*var(--u));height:calc(9*var(--u));min-width:6px;min-height:6px;border-radius:50%;background:var(--cream);animation:pulse 1.2s ease-in-out infinite}
-@keyframes pulse{50%{transform:scale(.4);opacity:.4}}
-a:focus-visible,button:focus-visible{outline:2px solid var(--cream);outline-offset:3px}
-@media (max-width:820px){
-  :root{--u:1px}
-  header{padding:18px 18px 0}
-  nav a:not(.pill){display:none}
-  .pill{height:40px;padding:0 18px;font-size:12px}
-  .hero{left:20px;right:20px}
-  h1{font-size:clamp(64px,19vw,96px);white-space:normal}
-  .corner{left:20px;right:20px;bottom:calc(26px + env(safe-area-inset-bottom));justify-content:center;font-size:11px}
-  .hero{top:auto;bottom:calc(84px + env(safe-area-inset-bottom));transform:none}
-  .steps{position:absolute;right:0;bottom:0;flex-direction:column-reverse;gap:12px;margin:0}
-  .step svg{transform:rotate(-90deg)}
-  .step{width:52px;height:52px}.step svg{width:20px;height:20px}
-  .go{width:58px;height:58px}
-  .sound{width:30px;height:30px}
+/* ===================================================================
+   Base
+   =================================================================== */
+:root {
+  --u: min(calc(100vw / 1600), calc(100vh / 900));   /* 1u = 1px on a 1600×900 screen; scales with the window */
+  --cream: #f5efe2;
 }
-@media (prefers-reduced-motion:reduce){.loader span{animation:none}}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+html { cursor: grab; }
+html.dragging { cursor: grabbing; }
+body {
+  color: var(--cream);
+  font-family: Manrope, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  touch-action: none;              /* the page handles all touch gestures itself */
+}
+body.no-webgl { background: radial-gradient(120% 80% at 50% 100%, #0d2a26 0%, #05100f 45%, #000 80%); }
+
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--cream); outline-offset: 3px; }
+
+/* ===================================================================
+   3D view
+   =================================================================== */
+#valley { position: fixed; inset: 0; }
+#valley canvas { display: block; width: 100% !important; height: 100% !important; }
+
+/* ===================================================================
+   Interface layer (fades in at the end of the intro)
+   =================================================================== */
+.ui {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;            /* clicks pass through to the 3D view... */
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+.ui.on { opacity: 1; }
+.ui a, .ui button {
+  pointer-events: auto;            /* ...except on links and buttons */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;     /* no long-press menu on phones */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+header {
+  position: absolute;
+  top: env(safe-area-inset-top, 0);
+  left: 0;
+  right: 0;
+  padding: calc(24 * var(--u)) calc(44 * var(--u)) 0;
+}
+.logo { font-size: calc(26 * var(--u)); font-weight: 500; letter-spacing: -0.02em; }
+
+/* Centre controls: walk back / forward, and the dot that pauses and scatters the flowers */
+.controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-46%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.steps { display: flex; gap: calc(16 * var(--u)); margin-bottom: calc(18 * var(--u)); }
+.step {
+  display: grid;
+  place-items: center;
+  width: calc(46 * var(--u));
+  height: calc(46 * var(--u));
+  border-radius: 50%;
+  border: 1.5px solid rgba(245, 239, 226, 0.55);
+  background: rgba(0, 0, 0, 0.18);
+  transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.15s;
+}
+.step:hover { border-color: var(--cream); }
+.step.held, .step:active { background: var(--cream); color: #151510; border-color: var(--cream); transform: scale(0.94); }
+.step svg {
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.scatter {
+  display: grid;
+  place-items: center;
+  width: calc(58 * var(--u));
+  height: calc(58 * var(--u));
+  border: 1.5px solid var(--cream);
+  border-radius: 50%;
+  transition: background 0.3s, color 0.3s;
+}
+.scatter:hover { background: var(--cream); color: #151510; }
+.scatter .dot {
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  min-width: 7px;
+  min-height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  transition: transform 0.3s;
+}
+.scatter:hover .dot { transform: scale(1.25); }
+
+/* Bottom right: hints and the sound switch */
+.corner {
+  position: absolute;
+  right: calc(44 * var(--u));
+  bottom: calc(44 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(18 * var(--u));
+  font-size: calc(12.5 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.corner i { width: 1px; height: calc(26 * var(--u)); background: rgba(245, 239, 226, 0.45); }
+.hint-touch { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .hint-desk { display: none !important; }
+  .hint-touch { display: inline; }
+}
+.sound { display: grid; place-items: center; width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
+.sound svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.sound .waves, .sound .cross { transition: opacity 0.3s; }
+.sound[aria-pressed="false"] .waves { opacity: 0; }
+.sound[aria-pressed="true"] .cross { opacity: 0; }
+
+/* ===================================================================
+   Loading screen (and the message if three.js can't be loaded)
+   =================================================================== */
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: #000;
+  transition: opacity 1s ease;
+  pointer-events: none;
+}
+.loader.gone { opacity: 0; }
+.loader.failed { pointer-events: auto; }
+.loader.failed .loader-dot { display: none; }
+.loader-dot {
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 50%;
+  background: var(--cream);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 50% { transform: scale(0.4); opacity: 0.4; } }
+.loader-note {
+  position: absolute;
+  top: calc(50% + 26px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
+.loader-error { display: grid; gap: 8px; justify-items: center; padding: 0 24px; text-align: center; font-size: 15px; }
+.loader-error .sub { font-size: 13px; opacity: 0.65; }
+.loader-error button {
+  margin-top: 10px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 99px;
+  background: var(--cream);
+  color: #151510;
+  font-weight: 500;
+}
+
+/* Frames-per-second readout */
+#fps {
+  position: fixed;
+  z-index: 4;
+  top: calc(70 * var(--u) + env(safe-area-inset-top, 0px));
+  right: calc(44 * var(--u));
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--cream);
+  font: 500 12px/1 ui-monospace, Menlo, monospace;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+
+/* ===================================================================
+   Phones and narrow windows
+   =================================================================== */
+@media (max-width: 820px) {
+  :root { --u: 1px; }
+  header { padding: 18px 18px 0; }
+  /* controls sit low where thumbs reach; the walk arrows stack in the bottom right, pointing up/down */
+  .controls { left: 20px; right: 20px; top: auto; bottom: calc(84px + env(safe-area-inset-bottom)); transform: none; }
+  .steps { position: absolute; right: 0; bottom: 0; flex-direction: column-reverse; gap: 12px; margin: 0; }
+  .step { width: 52px; height: 52px; }
+  .step svg { width: 20px; height: 20px; transform: rotate(-90deg); }
+  .scatter { width: 58px; height: 58px; }
+  .corner { left: 20px; right: 20px; bottom: calc(26px + env(safe-area-inset-bottom)); justify-content: center; font-size: 11px; }
+  .sound { width: 30px; height: 30px; }
+  #fps { top: calc(64px + env(safe-area-inset-top, 0px)); right: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loader-dot { animation: none; }
+}
 </style>
+
+<!-- three.js (keep these addresses identical in every room so phones reuse the cached copy) -->
 <script type="importmap">
-{"imports":{
-  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-}}
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+  }
+}
 </script>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.core.js">
 </head>
+
 <body>
-<div id="valley" aria-hidden="true"><div class="js-canvas-container" id="stage"></div></div>
+<div id="valley" aria-hidden="true"></div>
+
 <div class="ui" id="ui">
   <header>
     <a class="logo" href="#" aria-label="The Garden">The Garden</a>
   </header>
-  <section class="hero">
+
+  <section class="controls">
     <div class="steps">
       <button class="step" id="back" aria-label="Walk back"><svg viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg></button>
-      <button class="step" id="fwd" aria-label="Walk forward"><svg viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></button>
+      <button class="step" id="forward" aria-label="Walk forward"><svg viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></button>
     </div>
-    <button class="go" id="go" aria-label="Pause and scatter the flowers"><span class="dot"></span></button>
+    <button class="scatter" id="scatter" aria-label="Pause and scatter the flowers"><span class="dot"></span></button>
   </section>
-  <div class="corner"><span class="hint-desk">Scroll to wander</span><i class="hint-desk"></i><span class="hint-desk">Drag to look</span><span class="hint-touch">Drag to look around</span><i></i>
-    <button class="sound" id="sound" aria-pressed="false" aria-label="Ambient sound"><svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5Z"/><path class="w" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="m16 10 4 4m0-4-4 4"/></svg></button>
+
+  <div class="corner">
+    <span class="hint-desk">Scroll to wander</span><i class="hint-desk"></i><span class="hint-desk">Drag to look</span>
+    <span class="hint-touch">Drag to look around</span>
+    <i></i>
+    <button class="sound" id="sound" aria-pressed="false" aria-label="Ambient sound">
+      <svg viewBox="0 0 24 24">
+        <path d="M4 9.5v5h3.5L12 18V6L7.5 9.5Z"/>
+        <path class="waves" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>
+        <path class="cross" d="m16 10 4 4m0-4-4 4"/>
+      </svg>
+    </button>
   </div>
 </div>
-<div class="loader" id="loader"><span></span></div>
+
+<div class="loader" id="loader">
+  <span class="loader-dot"></span>
+  <p class="loader-note" id="slowNote" hidden>Still loading…</p>
+  <div class="loader-error" id="loadError" role="alert" hidden>
+    <p>The garden couldn’t load.</p>
+    <p class="sub">Check your connection, then try again.</p>
+    <button id="retry">Try again</button>
+  </div>
+</div>
+
+<div id="fps" hidden></div>
 
 <script type="module">
-import * as THREE from 'three';
-import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
-import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
-import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
-import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
-import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
+/* =====================================================================
+   Contents
+     1. Settings and page elements
+     2. Loading three.js (with a message if it fails)
+     3. Ambient sound
+     4. Randomness and noise
+     5. Valley shape: ground height and the camera path
+     6. Scene pieces: terrain, sky and stars, moon, flowers, wanderer, light rays, dust
+     7. Post-processing
+     8. The garden: input, frame loop, clean-up
+   ===================================================================== */
 
-const $=id=>document.getElementById(id);
-const loaderEl=$('loader'), uiEl=$('ui'), stage=$('stage');
-const SMALL=matchMedia('(max-width:820px)').matches || matchMedia('(pointer:coarse)').matches;
-const REDUCE=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/* ------------------------------------------------------------------ audio
-   Procedural ambient night: a slow pad, wind, distant chimes and crickets,
-   all through one low-pass filter that the arrow button closes down.     */
-const audio={ctx:null,on:false,master:null,lp:null,
-  init(){
-    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return false;
-    const ctx=this.ctx=new AC();
-    const master=this.master=ctx.createGain(); master.gain.value=0;
-    const lp=this.lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=16000; lp.Q.value=.6;
-    const comp=ctx.createDynamicsCompressor(); comp.threshold.value=-18; comp.ratio.value=3;
-    master.connect(lp); lp.connect(comp); comp.connect(ctx.destination);
-    // reverb from a generated impulse
-    const conv=ctx.createConvolver(), len=ctx.sampleRate*4.5, ir=ctx.createBuffer(2,len,ctx.sampleRate);
-    for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.4)}
-    conv.buffer=ir; const wet=ctx.createGain(); wet.gain.value=.6; conv.connect(wet); wet.connect(master);
-    this.rev=conv;
-    // pad
-    const padLp=ctx.createBiquadFilter(); padLp.type='lowpass'; padLp.frequency.value=900;
-    const padBus=ctx.createGain(); padBus.gain.value=.55; padLp.connect(padBus); padBus.connect(master); padBus.connect(conv);
-    [73.42,110,146.83,164.81,220,277.18,329.63].forEach((f,i)=>{
-      const g=ctx.createGain(); g.gain.value=.035; g.connect(padLp);
-      const lfo=ctx.createOscillator(), lg=ctx.createGain(); lfo.frequency.value=.04+i*.017; lg.gain.value=.028;
-      lfo.connect(lg); lg.connect(g.gain); lfo.start();
-      [-5,5].forEach((dt,k)=>{const o=ctx.createOscillator(); o.type=k?'triangle':'sine'; o.frequency.value=f; o.detune.value=dt; o.connect(g); o.start()});
-    });
-    // wind
-    const nb=ctx.createBuffer(1,ctx.sampleRate*4,ctx.sampleRate), nd=nb.getChannelData(0);
-    for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
-    const ns=ctx.createBufferSource(); ns.buffer=nb; ns.loop=true;
-    const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=520; bp.Q.value=.7;
-    const wl=ctx.createOscillator(), wlg=ctx.createGain(); wl.frequency.value=.06; wlg.gain.value=320; wl.connect(wlg); wlg.connect(bp.frequency); wl.start();
-    const wg=ctx.createGain(); wg.gain.value=.05; ns.connect(bp); bp.connect(wg); wg.connect(master); wg.connect(conv); ns.start();
-    this.chimes(); this.crickets();
+/* ---------------------------------------------------------------------
+   1. Settings and page elements
+   --------------------------------------------------------------------- */
+// A phone (or tablet) is judged by the device, not the window: a narrow window on a desktop
+// (like a preview panel) still gets the full flower field. The layout still adapts to width in CSS.
+const IS_PHONE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) <= 820;
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const SETTINGS = {
+  // Quality (phones get less so they stay smooth)
+  maxPixelRatio: IS_PHONE ? 1.35 : 1.75,
+  flowerCount:   IS_PHONE ? 34000 : 96000,
+  leafCount:     IS_PHONE ? 16000 : 42000,
+  terrainDetail: IS_PHONE ? 200 : 300,        // grid squares per side of the ground
+  rayCount:      IS_PHONE ? 22 : 36,
+  dustCount:     IS_PHONE ? 900 : 1800,
+  maxFlowerPx:   IS_PHONE ? 60 : 72,          // largest a flower can appear, in CSS pixels
+  drawDistance:  330,                         // flower patches further than this are skipped (the fog hides them anyway)
+
+  // Layout
+  layoutSeed: 20261114,                       // same seed = same flower field on every visit
+  terrainSize: 820,                           // the ground is a square this wide, centred on the valley loop
+  eyeHeight: 2.5,
+  lookAhead: 14,                              // the camera aims at the path this far ahead
+  wanderer: { along: 55, side: -7 },          // units along the path, units to the side (negative = left)
+
+  // Motion
+  introSeconds: 4.2,
+  driftSpeed: REDUCED_MOTION ? 0.5 : 1.5,     // units per second while idle
+  walkSpeed: 16,                              // units per second while an arrow button is held
+  wheelSpeed: 0.035,                          // units per pixel of mouse-wheel scroll
+};
+
+const el = id => document.getElementById(id);
+const page = {
+  valley: el('valley'),
+  ui: el('ui'),
+  loader: el('loader'),
+  slowNote: el('slowNote'),
+  loadError: el('loadError'),
+  retry: el('retry'),
+  fps: el('fps'),
+  back: el('back'),
+  forward: el('forward'),
+  scatter: el('scatter'),
+  sound: el('sound'),
+};
+
+
+/* ---------------------------------------------------------------------
+   2. Loading three.js
+   If jsDelivr can't be reached, show a message with a retry button
+   instead of leaving the loading dot pulsing forever.
+   --------------------------------------------------------------------- */
+const slowTimer = setTimeout(() => { page.slowNote.hidden = false; }, 12000);
+page.retry.addEventListener('click', () => location.reload());
+
+function showLoadError(error) {
+  clearTimeout(slowTimer);
+  console.error('The Garden: three.js could not be loaded.', error);
+  page.slowNote.hidden = true;
+  page.loadError.hidden = false;
+  page.loader.classList.add('failed');
+}
+
+let THREE, EffectComposer, RenderPass, ShaderPass, OutputPass;
+try {
+  [THREE, { EffectComposer }, { RenderPass }, { ShaderPass }, { OutputPass }] = await Promise.all([
+    import('three'),
+    import('three/addons/postprocessing/EffectComposer.js'),
+    import('three/addons/postprocessing/RenderPass.js'),
+    import('three/addons/postprocessing/ShaderPass.js'),
+    import('three/addons/postprocessing/OutputPass.js'),
+  ]);
+} catch (error) {
+  showLoadError(error);
+}
+
+
+/* ---------------------------------------------------------------------
+   3. Ambient sound
+   A slow pad, wind, distant chimes and crickets, all generated live.
+   Everything passes through one low-pass filter that the scatter dot
+   closes down to muffle the sound. While muted, the audio engine is
+   paused so it uses no CPU.
+   --------------------------------------------------------------------- */
+const ambient = {
+  ctx: null,
+  master: null,      // overall volume
+  filter: null,      // low-pass filter (muffle)
+  reverb: null,
+  on: false,
+  timers: {},
+  suspendTimer: 0,
+
+  // Built the first time sound is switched on: browsers only allow audio after a click.
+  build() {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return false;
+    const ctx = this.ctx = new AudioContext();
+
+    // master volume → low-pass filter → gentle compressor → speakers
+    this.master = ctx.createGain();
+    this.master.gain.value = 0;
+    this.filter = ctx.createBiquadFilter();
+    this.filter.type = 'lowpass';
+    this.filter.frequency.value = 16000;
+    this.filter.Q.value = 0.6;
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -18;
+    compressor.ratio.value = 3;
+    this.master.connect(this.filter);
+    this.filter.connect(compressor);
+    compressor.connect(ctx.destination);
+
+    // reverb: a burst of fading noise used as the "room"
+    this.reverb = ctx.createConvolver();
+    this.reverb.buffer = this.noiseBuffer(4.5, 2, 2.4);
+    const reverbLevel = ctx.createGain();
+    reverbLevel.gain.value = 0.6;
+    this.reverb.connect(reverbLevel);
+    reverbLevel.connect(this.master);
+
+    this.buildPad();
+    this.buildWind();
     return true;
   },
-  chimes(){
-    const ctx=this.ctx, notes=[587.33,659.25,739.99,880,987.77,1174.66,1318.51];
-    const ring=()=>{
-      if(this.on){
-        const t=ctx.currentTime, f=notes[Math.random()*notes.length|0];
-        const pan=ctx.createStereoPanner?ctx.createStereoPanner():null;
-        const g=ctx.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.045,t+.012); g.gain.exponentialRampToValueAtTime(.0001,t+3.8);
-        [[1,1],[2.76,.25],[5.4,.08]].forEach(([m,v])=>{const o=ctx.createOscillator(),og=ctx.createGain();o.frequency.value=f*m;og.gain.value=v;o.connect(og);og.connect(g);o.start(t);o.stop(t+4)});
-        if(pan){pan.pan.value=Math.random()*1.6-.8; g.connect(pan); pan.connect(this.rev); pan.connect(this.master)} else {g.connect(this.rev)}
+
+  // `seconds` of white noise; with `fade`, it dies away (used for the reverb)
+  noiseBuffer(seconds, channels = 1, fade = 0) {
+    const length = Math.floor(this.ctx.sampleRate * seconds);
+    const buffer = this.ctx.createBuffer(channels, length, this.ctx.sampleRate);
+    for (let c = 0; c < channels; c++) {
+      const data = buffer.getChannelData(c);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * (fade ? Math.pow(1 - i / length, fade) : 1);
       }
-      setTimeout(ring,1800+Math.random()*4200);
-    }; setTimeout(ring,2500);
+    }
+    return buffer;
   },
-  crickets(){
-    const ctx=this.ctx;
-    const chirp=()=>{
-      if(this.on){
-        const t=ctx.currentTime, pan=ctx.createStereoPanner?ctx.createStereoPanner():null;
-        const o=ctx.createOscillator(); o.frequency.value=4300+Math.random()*500;
-        const g=ctx.createGain(); g.gain.value=0;
-        for(let k=0,n=3+(Math.random()*3|0);k<n;k++){const s=t+k*.11;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(.006,s+.012);g.gain.linearRampToValueAtTime(0,s+.05)}
-        o.connect(g); if(pan){pan.pan.value=Math.random()*2-1;g.connect(pan);pan.connect(this.master);pan.connect(this.rev)}else g.connect(this.master);
-        o.start(t); o.stop(t+.8);
-      }
-      setTimeout(chirp,900+Math.random()*3000);
-    }; setTimeout(chirp,1500);
+
+  // A warm, slow chord. Each note swells at its own pace.
+  buildPad() {
+    const ctx = this.ctx;
+    const warmth = ctx.createBiquadFilter();
+    warmth.type = 'lowpass';
+    warmth.frequency.value = 900;
+    const level = ctx.createGain();
+    level.gain.value = 0.55;
+    warmth.connect(level);
+    level.connect(this.master);
+    level.connect(this.reverb);
+
+    [73.42, 110, 146.83, 164.81, 220, 277.18, 329.63].forEach((frequency, i) => {
+      const voice = ctx.createGain();
+      voice.gain.value = 0.035;
+      voice.connect(warmth);
+
+      const swell = ctx.createOscillator();
+      const swellDepth = ctx.createGain();
+      swell.frequency.value = 0.04 + i * 0.017;
+      swellDepth.gain.value = 0.028;
+      swell.connect(swellDepth);
+      swellDepth.connect(voice.gain);
+      swell.start();
+
+      // two slightly detuned oscillators per note for a soft chorus
+      [['sine', -5], ['triangle', 5]].forEach(([type, detune]) => {
+        const osc = ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.value = frequency;
+        osc.detune.value = detune;
+        osc.connect(voice);
+        osc.start();
+      });
+    });
   },
-  toggle(){
-    if(!this.ctx && !this.init()) return this.on;
-    this.ctx.resume&&this.ctx.resume().catch(()=>{});
-    this.on=!this.on;
-    const t=this.ctx.currentTime, g=this.master.gain;
-    g.cancelScheduledValues(t); g.setValueAtTime(g.value,t); g.setTargetAtTime(this.on?.75:0,t,this.on?.9:.35);
+
+  // Wind: looping noise through a band-pass filter whose pitch slowly wanders.
+  buildWind() {
+    const ctx = this.ctx;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer(4);
+    noise.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 520;
+    band.Q.value = 0.7;
+
+    const gust = ctx.createOscillator();
+    const gustDepth = ctx.createGain();
+    gust.frequency.value = 0.06;
+    gustDepth.gain.value = 320;
+    gust.connect(gustDepth);
+    gustDepth.connect(band.frequency);
+    gust.start();
+
+    const level = ctx.createGain();
+    level.gain.value = 0.05;
+    noise.connect(band);
+    band.connect(level);
+    level.connect(this.master);
+    level.connect(this.reverb);
+    noise.start();
+  },
+
+  // A distant bell: three out-of-tune partials with a long fade.
+  playChime() {
+    const ctx = this.ctx, t = ctx.currentTime;
+    const notes = [587.33, 659.25, 739.99, 880, 987.77, 1174.66, 1318.51];
+    const pitch = notes[Math.floor(Math.random() * notes.length)];
+    const envelope = ctx.createGain();
+    envelope.gain.setValueAtTime(0, t);
+    envelope.gain.linearRampToValueAtTime(0.045, t + 0.012);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, t + 3.8);
+    [[1, 1], [2.76, 0.25], [5.4, 0.08]].forEach(([ratio, volume]) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.frequency.value = pitch * ratio;
+      gain.gain.value = volume;
+      osc.connect(gain);
+      gain.connect(envelope);
+      osc.start(t);
+      osc.stop(t + 4);
+    });
+    this.place(envelope, 0.8);
+  },
+
+  // A cricket: a few quick high chirps.
+  playCricket() {
+    const ctx = this.ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.frequency.value = 4300 + Math.random() * 500;
+    const envelope = ctx.createGain();
+    envelope.gain.value = 0;
+    const chirps = 3 + Math.floor(Math.random() * 3);
+    for (let k = 0; k < chirps; k++) {
+      const start = t + k * 0.11;
+      envelope.gain.setValueAtTime(0, start);
+      envelope.gain.linearRampToValueAtTime(0.006, start + 0.012);
+      envelope.gain.linearRampToValueAtTime(0, start + 0.05);
+    }
+    osc.connect(envelope);
+    osc.start(t);
+    osc.stop(t + 0.8);
+    this.place(envelope, 1);
+  },
+
+  // Put a one-off sound at a random spot left–right, with some reverb.
+  place(node, spread) {
+    let output = node;
+    if (this.ctx.createStereoPanner) {
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.value = (Math.random() * 2 - 1) * spread;
+      node.connect(panner);
+      output = panner;
+    }
+    output.connect(this.master);
+    output.connect(this.reverb);
+  },
+
+  // Call `play` over and over at random gaps, only while the sound is on.
+  repeat(name, play, firstDelay, nextGap) {
+    const tick = () => {
+      if (!this.on) return;
+      play();
+      this.timers[name] = setTimeout(tick, nextGap());
+    };
+    clearTimeout(this.timers[name]);
+    this.timers[name] = setTimeout(tick, firstDelay);
+  },
+  stopRepeats() {
+    Object.values(this.timers).forEach(clearTimeout);
+    this.timers = {};
+  },
+
+  // Switch on/off with a fade. Returns whether sound is now on.
+  toggle() {
+    if (!this.ctx && !this.build()) return false;
+    this.on = !this.on;
+    clearTimeout(this.suspendTimer);
+    const t = this.ctx.currentTime, gain = this.master.gain;
+    gain.cancelScheduledValues(t);
+    gain.setValueAtTime(gain.value, t);
+    if (this.on) {
+      this.ctx.resume?.().catch(() => {});
+      gain.setTargetAtTime(0.75, t, 0.9);
+      this.repeat('chime', () => this.playChime(), 2500, () => 1800 + Math.random() * 4200);
+      this.repeat('cricket', () => this.playCricket(), 1500, () => 900 + Math.random() * 3000);
+    } else {
+      gain.setTargetAtTime(0, t, 0.35);
+      this.stopRepeats();
+      // once it has faded out, pause the audio engine entirely
+      this.suspendTimer = setTimeout(() => { if (!this.on) this.ctx.suspend?.().catch(() => {}); }, 2000);
+    }
     return this.on;
   },
-  muffle(m){ if(!this.ctx) return; const t=this.ctx.currentTime; this.lp.frequency.cancelScheduledValues(t); this.lp.frequency.setTargetAtTime(m?380:16000,t,m?.4:.6) }
+
+  // Muffle (or un-muffle) everything, used while the flowers are scattered.
+  muffle(closed) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, frequency = this.filter.frequency;
+    frequency.cancelScheduledValues(t);
+    frequency.setTargetAtTime(closed ? 380 : 16000, t, closed ? 0.4 : 0.6);
+  },
+
+  dispose() {
+    this.on = false;
+    this.stopRepeats();
+    clearTimeout(this.suspendTimer);
+    this.ctx?.close();
+    this.ctx = null;
+  },
 };
-const soundBtn=$('sound');
-soundBtn.addEventListener('click',()=>{ soundBtn.setAttribute('aria-pressed',String(audio.toggle())) });
 
-/* --------------------------------------------------------------- noise */
-function hash(x,y){let h=(Math.imul(x|0,374761393)+Math.imul(y|0,668265263))|0;h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967296}
-function vnoise(x,y){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
-  const a=hash(xi,yi),b=hash(xi+1,yi),c=hash(xi,yi+1),d=hash(xi+1,yi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v}
-function fbm(x,y){let s=0,a=.5,f=1;for(let i=0;i<4;i++){s+=a*vnoise(x*f,y*f);f*=2.03;a*=.5}return s}
+page.sound.addEventListener('click', () => {
+  page.sound.setAttribute('aria-pressed', String(ambient.toggle()));
+});
 
-/* ----------------------------------------------------- valley geometry
-   A winding valley loop. The camera follows its floor forever.        */
-const ringR=a=>230+34*Math.sin(3*a+.4)+16*Math.sin(5*a+1.3)+7*Math.sin(9*a+2.1);
-function ground(x,z){
-  const a=Math.atan2(z,x), d=Math.abs(Math.hypot(x,z)-ringR(a));
-  const w=15+9*vnoise(a*7+3,.5), t=Math.max(0,d-w);
-  // hills rise from the valley floor and level off at a ridgeline whose height wanders, leaving saddles between peaks
-  const raw=Math.pow(t/36,1.55)*15, cap=24+110*Math.pow(fbm(x*.0075+40,z*.0075-12),1.8);
-  return cap*(1-Math.exp(-raw/cap)) + (fbm(x*.012+7,z*.012-3)-.5)*7 + fbm(x*.06,z*.06)*1.4;
+
+/* ---------------------------------------------------------------------
+   4. Randomness and noise
+   --------------------------------------------------------------------- */
+
+// Seeded random numbers (the "mulberry32" generator): the same seed always
+// gives the same sequence, so the flower field is identical on every visit.
+function seededRandom(seed) {
+  return () => {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-function boot(){
-  let renderer;
-  try{
-    renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
-    if(!renderer.getContext()) throw 0;
-  }catch(e){ document.body.classList.add('nogl'); loaderEl.classList.add('gone'); uiEl.classList.add('on'); return }
-  const DPR=Math.min(devicePixelRatio||1,SMALL?1.35:1.75);
-  renderer.setPixelRatio(DPR); renderer.setSize(innerWidth,innerHeight); renderer.setClearColor(0x000000,1);
-  renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
-  stage.appendChild(renderer.domElement);
+// A repeatable pseudo-random value (0–1) for each whole-number grid point.
+function hash(x, y) {
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
 
-  const scene=new THREE.Scene();
-  const FOG=new THREE.Color('#03070a');
-  scene.fog=new THREE.FogExp2(FOG,.0105);
-  const camera=new THREE.PerspectiveCamera(64,innerWidth/innerHeight,.1,2200);
+// Smooth noise: blends the grid values so it varies gently between points.
+function valueNoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
 
-  // camera path, sampled into a table with smoothed floor heights
-  const ctrl=[]; for(let i=0;i<160;i++){const a=i/160*Math.PI*2,r=ringR(a);ctrl.push(new THREE.Vector3(r*Math.cos(a),0,r*Math.sin(a)))}
-  const curve=new THREE.CatmullRomCurve3(ctrl,true,'centripetal');
-  const L=curve.getLength(), NS=3000, PX=new Float32Array(NS), PZ=new Float32Array(NS), PY=new Float32Array(NS);
-  const raw=new Float32Array(NS), tmp=new THREE.Vector3();
-  for(let i=0;i<NS;i++){curve.getPointAt(i/NS,tmp);PX[i]=tmp.x;PZ[i]=tmp.z;raw[i]=ground(tmp.x,tmp.z)}
-  for(let i=0;i<NS;i++){let s=0,n=0;for(let k=-40;k<=40;k++){s+=raw[(i+k+NS)%NS];n++}PY[i]=Math.max(s/n,raw[i]-.4)}
-  function pathAt(s,out){
-    const f=((s%L)+L)%L/L*NS, i=Math.floor(f), j=(i+1)%NS, t=f-i;
-    return out.set(PX[i]+(PX[j]-PX[i])*t, PY[i]+(PY[j]-PY[i])*t, PZ[i]+(PZ[j]-PZ[i])*t);
+// Layered noise (4 octaves): big shapes plus finer detail.
+function fbm(x, y) {
+  let sum = 0, amplitude = 0.5, frequency = 1;
+  for (let i = 0; i < 4; i++) {
+    sum += amplitude * valueNoise(x * frequency, y * frequency);
+    frequency *= 2.03;
+    amplitude *= 0.5;
+  }
+  return sum;
+}
+
+
+/* ---------------------------------------------------------------------
+   5. Valley shape
+   The valley is a closed, wobbly loop around the origin. The camera
+   walks its floor forever; hills rise on both sides.
+   --------------------------------------------------------------------- */
+
+// Radius of the valley's centre line at angle `a` around the origin.
+const loopRadius = a => 230 + 34 * Math.sin(3 * a + 0.4) + 16 * Math.sin(5 * a + 1.3) + 7 * Math.sin(9 * a + 2.1);
+
+// Ground height anywhere: a flat floor along the loop that rises into hills,
+// which level off at a ridgeline whose height wanders (leaving saddles between peaks).
+function groundHeight(x, z) {
+  const angle = Math.atan2(z, x);
+  const fromCentreLine = Math.abs(Math.hypot(x, z) - loopRadius(angle));
+  const floorHalfWidth = 15 + 9 * valueNoise(angle * 7 + 3, 0.5);
+  const uphill = Math.max(0, fromCentreLine - floorHalfWidth);
+  const rise = Math.pow(uphill / 36, 1.55) * 15;
+  const ridge = 24 + 110 * Math.pow(fbm(x * 0.0075 + 40, z * 0.0075 - 12), 1.8);
+  return ridge * (1 - Math.exp(-rise / ridge))        // rise, flattening out near the ridgeline
+       + (fbm(x * 0.012 + 7, z * 0.012 - 3) - 0.5) * 7  // broad lumps
+       + fbm(x * 0.06, z * 0.06) * 1.4;                 // small bumps
+}
+
+// The camera path: a smooth curve along the valley floor, sampled into a
+// table once so it's fast to look up every frame.
+function buildPath() {
+  const control = [];
+  for (let i = 0; i < 160; i++) {
+    const a = (i / 160) * Math.PI * 2, r = loopRadius(a);
+    control.push(new THREE.Vector3(r * Math.cos(a), 0, r * Math.sin(a)));
+  }
+  const curve = new THREE.CatmullRomCurve3(control, true, 'centripetal');
+  const length = curve.getLength();
+
+  const SAMPLES = 3000;
+  const xs = new Float32Array(SAMPLES), ys = new Float32Array(SAMPLES), zs = new Float32Array(SAMPLES);
+  const floor = new Float32Array(SAMPLES), point = new THREE.Vector3();
+  for (let i = 0; i < SAMPLES; i++) {
+    curve.getPointAt(i / SAMPLES, point);
+    xs[i] = point.x;
+    zs[i] = point.z;
+    floor[i] = groundHeight(point.x, point.z);
+  }
+  // Smooth the floor height (average of ±40 samples) so the camera glides
+  // instead of bumping, but never sink more than 0.4 below the real ground.
+  for (let i = 0; i < SAMPLES; i++) {
+    let sum = 0;
+    for (let k = -40; k <= 40; k++) sum += floor[(i + k + SAMPLES) % SAMPLES];
+    ys[i] = Math.max(sum / 81, floor[i] - 0.4);
   }
 
-  /* terrain */
-  const TG=new THREE.PlaneGeometry(820,820,SMALL?200:300,SMALL?200:300); TG.rotateX(-Math.PI/2);
-  const tp=TG.attributes.position, tcol=new Float32Array(tp.count*3);
-  const cLow=new THREE.Color('#0b1a16'), cHigh=new THREE.Color('#0a1118'), cc=new THREE.Color();
-  for(let i=0;i<tp.count;i++){const x=tp.getX(i),z=tp.getZ(i),y=ground(x,z);tp.setY(i,y);
-    cc.copy(cLow).lerp(cHigh,Math.min(1,Math.max(0,y/30))).multiplyScalar(.75+.5*vnoise(x*.08,z*.08));tcol.set([cc.r,cc.g,cc.b],i*3)}
-  TG.setAttribute('color',new THREE.BufferAttribute(tcol,3)); TG.computeVertexNormals();
-  scene.add(new THREE.Mesh(TG,new THREE.MeshLambertMaterial({vertexColors:true})));
-  scene.add(new THREE.HemisphereLight(0x3a5a78,0x050806,.7));
-  const moonLight=new THREE.DirectionalLight(0x9fb8d8,.9); moonLight.position.set(-.4,1,.2); scene.add(moonLight);
+  const sampleIndex = s => ((((s % length) + length) % length) / length) * SAMPLES;
 
-  /* sky + stars */
-  const sky=new THREE.Mesh(new THREE.SphereGeometry(1900,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
-    vertexShader:`varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec3 vP;void main(){float h=clamp(vP.y,0.,1.);vec3 c=mix(vec3(.018,.04,.055),vec3(0.),pow(h,.45));gl_FragColor=vec4(c,1.);}`}));
-  scene.add(sky);
-  {const n=2200,p=new Float32Array(n*3),s=new Float32Array(n);
-    for(let i=0;i<n;i++){const u=Math.random()*Math.PI*2,v=.06+Math.random()*.94,r=1800,q=Math.sqrt(1-v*v);p.set([r*q*Math.cos(u),r*v,r*q*Math.sin(u)],i*3);s[i]=Math.random()}
-    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));g.setAttribute('aS',new THREE.BufferAttribute(s,1));
-    const stars=new THREE.Points(g,new THREE.ShaderMaterial({transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending,uniforms:{uTime:{value:0},uPR:{value:DPR}},
-      vertexShader:`attribute float aS;uniform float uTime,uPR;varying float vA;void main(){vA=(.25+.75*aS)*(.6+.4*sin(uTime*(.5+aS*2.)+aS*90.));gl_PointSize=(1.+aS*1.6)*uPR;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader:`varying float vA;void main(){float r=length(gl_PointCoord-.5);gl_FragColor=vec4(vec3(.85,.9,1.),(1.-smoothstep(.1,.5,r))*vA*.8);}`}));
-    stars.frustumCulled=false; scene.add(stars); scene.userData.stars=stars}
+  return {
+    length,
 
-  const U_TIME={value:0};
-  /* moon: dim, behind slow drifting clouds, fixed in the sky */
-  const moon=new THREE.Mesh(new THREE.PlaneGeometry(420,420),new THREE.ShaderMaterial({transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending,
-    uniforms:{uTime:U_TIME},
-    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`uniform float uTime;varying vec2 vUv;
-      float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
-      float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*n(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return s;}
-      void main(){
-        vec2 q=(vUv*2.-1.)/.2;float r=length(q);
-        float disc=1.-smoothstep(.96,1.,r);
-        float m=n(q*2.6+3.)*.55+n(q*6.+9.)*.3+n(q*14.)*.15;
-        float limb=sqrt(max(0.,1.-r*r));
-        vec3 moonCol=vec3(.9,.9,1.)*(.55+.45*limb)*(1.-smoothstep(.42,.7,m)*.38);
-        // drifting cloud bank in front of the moon
-        float t=uTime;
-        float c=fbm(q*vec2(.32,.8)+vec2(t*.035,t*.006));
-        c=smoothstep(.26,.66,c+fbm(q*vec2(.8,1.6)-vec2(t*.05,0.))*.25-.08);
-        float through=1.-c*.9;
-        float halo=exp(-max(r-1.,0.)*1.6)*(1.-disc);
-        float lit=exp(-r*.55);
-        float edge=1.-smoothstep(3.2,4.9,r);
-        vec3 col=moonCol*disc*.2*through
-                +vec3(.5,.52,.8)*halo*.07*through
-                +vec3(.6,.6,.78)*c*lit*.12;
-        gl_FragColor=vec4(col*edge,1.);
-      }`}));
-  moon.frustumCulled=false; moon.renderOrder=-1; scene.add(moon);
-  // fixed point in the sky, set into the deepest dip between the hills seen from the start of the walk
-  const moonDir=(()=>{
-    const a=pathAt(10,new THREE.Vector3()), b=pathAt(24,new THREE.Vector3()), eye=a.y+2.5;
-    const f=new THREE.Vector3(b.x-a.x,0,b.z-a.z).normalize(), rt=f.clone().cross(new THREE.Vector3(0,1,0));
-    const deg=Math.PI/180, H=[], AZ=[];
-    for(let i=-42;i<=42;i++){                       // horizon height for each heading, about ±42° around forward
-      const az=i*deg, dx=f.x*Math.cos(az)+rt.x*Math.sin(az), dz=f.z*Math.cos(az)+rt.z*Math.sin(az);
-      let m=-1; for(let d=10;d<620;d+=3){const x=a.x+dx*d,z=a.z+dz*d;if(Math.abs(x)>408||Math.abs(z)>408)break;m=Math.max(m,Math.atan2(ground(x,z)-eye,d))}
-      H.push(m); AZ.push(az);
-    }
-    let bi=-1, bs=0;
-    for(let i=10;i<H.length-10;i++){               // dip = low point with higher hills on both sides
-      let l=-1,r=-1; for(let k=1;k<=10;k++){l=Math.max(l,H[i-k]);r=Math.max(r,H[i+k])}
-      const score=Math.min(l,r)-H[i]-Math.abs(AZ[i])*.02;
-      if(H[i]<.42&&score>bs){bs=score;bi=i}
-    }
-    const az=bi<0?-.32:AZ[bi], el=bi<0?.44:Math.max(.06,H[bi]+.032);
-    return f.multiplyScalar(Math.cos(el)*Math.cos(az)).addScaledVector(rt,Math.cos(el)*Math.sin(az)).add(new THREE.Vector3(0,Math.sin(el),0)).normalize()})();
+    // The point on the path `s` units from the start (wraps around the loop).
+    at(s, out) {
+      const f = sampleIndex(s);
+      const i = Math.floor(f) % SAMPLES, j = (i + 1) % SAMPLES, t = f - Math.floor(f);
+      return out.set(xs[i] + (xs[j] - xs[i]) * t, ys[i] + (ys[j] - ys[i]) * t, zs[i] + (zs[j] - zs[i]) * t);
+    },
 
-  /* flowers + leaves */
-  const NF=SMALL?38000:52000, NL=SMALL?20000:30000, N=NF+NL;
-  const fp=new Float32Array(N*3), fc=new Float32Array(N*3), fs=new Float32Array(N*4);
-  const petalPal=['#ff7ccf','#c08cff','#7fe3ff','#7b3fe4','#5a24b8','#9254f0','#9fffd8'].map(h=>new THREE.Color(h));
-  const leafPal=['#2c8a6c','#3aa58a','#1f6f6a','#4a9a5a'].map(h=>new THREE.Color(h));
-  for(let i=0;i<N;i++){
-    const leaf=i>=NF, k=Math.random()*NS|0, j=(k+1)%NS;
-    let tx=PX[j]-PX[k], tz=PZ[j]-PZ[k]; const tl=Math.hypot(tx,tz)||1; tx/=tl; tz/=tl;
-    let off=(Math.random()+Math.random()+Math.random()-1.5)/1.5*(leaf?80:58);
-    if(Math.abs(off)<2.6) off=Math.sign(off||1)*(2.6+Math.random()*1.5);
-    const x=PX[k]-tz*off+(Math.random()-.5)*2, z=PZ[k]+tx*off+(Math.random()-.5)*2;
-    const y=ground(x,z)+(leaf?.05+Math.random()*.45:.3+Math.random()*1.1);
-    fp.set([x,y,z],i*3);
-    let col;
-    if(leaf) col=leafPal[Math.random()*leafPal.length|0];
-    else col=petalPal[Math.floor(vnoise(x*.025+11,z*.025)*petalPal.length*1.5+Math.random()*1.3)%petalPal.length];
-    fc.set([col.r,col.g,col.b],i*3);
-    fs.set([Math.random(),Math.random()*6.283,5+(Math.random()*4|0),leaf?1:0],i*4);
+    // A point `side` units across the path at `s` (negative = left when walking forward).
+    // Only x and z are set; use groundHeight for y.
+    beside(s, side, out) {
+      const i = Math.floor(sampleIndex(s)) % SAMPLES, j = (i + 1) % SAMPLES;
+      let tx = xs[j] - xs[i], tz = zs[j] - zs[i];
+      const len = Math.hypot(tx, tz) || 1;
+      tx /= len;
+      tz /= len;
+      return out.set(xs[i] - tz * side, 0, zs[i] + tx * side);
+    },
+  };
+}
+
+
+/* ---------------------------------------------------------------------
+   6. Scene pieces
+   Each builder adds its objects to the scene and returns whatever the
+   frame loop needs to update.
+   --------------------------------------------------------------------- */
+
+// Shared vertex shader for full-screen and flat pieces that just need UVs.
+const UV_VERTEX_SHADER = /* glsl */`
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }`;
+
+// ---- Terrain and lights --------------------------------------------
+function buildTerrain(scene) {
+  const size = SETTINGS.terrainSize, detail = SETTINGS.terrainDetail;
+  const geometry = new THREE.PlaneGeometry(size, size, detail, detail);
+  geometry.rotateX(-Math.PI / 2);
+
+  const position = geometry.attributes.position;
+  const colors = new Float32Array(position.count * 3);
+  const floorColor = new THREE.Color('#0b1a16'), hillColor = new THREE.Color('#0a1118'), color = new THREE.Color();
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i), z = position.getZ(i), y = groundHeight(x, z);
+    position.setY(i, y);
+    // dark green on the floor, blue-grey higher up, slightly mottled
+    color.copy(floorColor)
+      .lerp(hillColor, THREE.MathUtils.clamp(y / 30, 0, 1))
+      .multiplyScalar(0.75 + 0.5 * valueNoise(x * 0.08, z * 0.08));
+    colors.set([color.r, color.g, color.b], i * 3);
   }
-  const FG=new THREE.BufferGeometry();
-  FG.setAttribute('position',new THREE.BufferAttribute(fp,3));
-  FG.setAttribute('color',new THREE.BufferAttribute(fc,3));
-  FG.setAttribute('aSeed',new THREE.BufferAttribute(fs,4));
-  const U={uTime:{value:0},uScale:{value:1},uIntro:{value:0},uDisperse:{value:0},uAspect:{value:1},
-    uMouse:{value:new THREE.Vector2(0,0)},uMouseOn:{value:0},uMouse2:{value:new THREE.Vector2(0,0)},uMouseOn2:{value:0},uCam:{value:new THREE.Vector3()},uMaxPx:{value:(SMALL?60:72)*DPR},uNear:{value:new THREE.Vector2(1.2,5.)}};
-  const flowers=new THREE.Points(FG,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
-    vertexShader:`
-      uniform float uTime,uScale,uIntro,uDisperse,uAspect,uMouseOn,uMouseOn2,uMaxPx;uniform vec2 uMouse,uMouse2,uNear;uniform vec3 uCam;
-      attribute vec3 color;attribute vec4 aSeed;
-      varying vec3 vColor;varying float vBloom,vGlow,vType,vRot,vPetals,vAlpha;
-      void main(){
-        float seed=aSeed.x,type=aSeed.w;vec3 p=position;
-        p.x+=sin(uTime*.8+seed*40.+p.z*.15)*.07;p.z+=cos(uTime*.7+seed*30.+p.x*.12)*.06;
-        // disperse into floating particles
-        float D=uDisperse;
-        vec3 toP=p-uCam;vec3 outw=normalize(vec3(toP.x,0.,toP.z)+1e-4);
-        vec3 rnd=vec3(fract(seed*127.1)-.5,fract(seed*311.7),fract(seed*74.7)-.5);
-        p+=(outw*(2.+seed*7.)+vec3(rnd.x*7.,1.5+rnd.y*8.,rnd.z*7.))*D;
-        p+=vec3(sin(uTime*.5+seed*20.),sin(uTime*.6+seed*13.)*1.4,cos(uTime*.45+seed*17.))*.7*D;
-        vec4 mv=modelViewMatrix*vec4(p,1.);float dist=-mv.z;
-        float intro=smoothstep(seed*.55,seed*.55+.45,uIntro);
-        float bloom=1.-smoothstep(5.,55.,dist);
-        float leafGrow=1.-smoothstep(35.,120.,dist);
-        float ws=type<.5?(.5+seed*.55)*mix(.2,1.,bloom):(.75+seed*.7)*mix(.25,1.,leafGrow);
-        ws*=intro;ws=mix(ws,.14+seed*.16,D);
-        vec4 clip=projectionMatrix*mv;
-        vec2 ndc=clip.xy/clip.w;float vis=step(0.,clip.w);
-        vec2 d1=(ndc-uMouse)*vec2(uAspect,1.),d2=(ndc-uMouse2)*vec2(uAspect,1.);float m1=length(d1),m2=length(d2);
-        ndc+=(d1/(m1+1e-4))*exp(-m1*m1*12.)*.1*uMouseOn*vis/vec2(uAspect,1.);
-        ndc+=(d2/(m2+1e-4))*exp(-m2*m2*12.)*.1*uMouseOn2*vis/vec2(uAspect,1.);
-        clip.xy=ndc*clip.w;gl_Position=clip;
-        vGlow=min(1.,exp(-m1*m1*35.)*uMouseOn+exp(-m2*m2*35.)*uMouseOn2);
-        gl_PointSize=clamp(ws*uScale/max(dist,.01),0.,uMaxPx);
-        vAlpha=smoothstep(uNear.x,uNear.y,dist)*exp(-pow(dist*.0115,1.5))*intro;
-        vColor=color;vBloom=bloom;vType=type;vRot=aSeed.y+sin(uTime*.3+seed*9.)*.15;vPetals=aSeed.z;
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  scene.add(new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ vertexColors: true })));
+
+  scene.add(new THREE.HemisphereLight(0x3a5a78, 0x050806, 0.7));
+  const moonlight = new THREE.DirectionalLight(0x9fb8d8, 0.9);
+  moonlight.position.set(-0.4, 1, 0.2);
+  scene.add(moonlight);
+}
+
+// ---- Sky dome and twinkling stars -------------------------------------
+function buildSky(scene, rand, shared) {
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(1900, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+      vertexShader: /* glsl */`
+        varying vec3 vDirection;
+        void main() {
+          vDirection = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: /* glsl */`
+        varying vec3 vDirection;
+        void main() {
+          // a faint blue-green glow at the horizon, fading to black overhead
+          float height = clamp(vDirection.y, 0.0, 1.0);
+          gl_FragColor = vec4(mix(vec3(0.018, 0.04, 0.055), vec3(0.0), pow(height, 0.45)), 1.0);
+        }`,
+    }),
+  );
+  scene.add(dome);
+
+  const count = 2200, radius = 1800;
+  const positions = new Float32Array(count * 3), seeds = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    const around = rand() * Math.PI * 2;
+    const up = 0.06 + rand() * 0.94;                 // keep stars above the horizon
+    const flat = Math.sqrt(1 - up * up);
+    positions.set([radius * flat * Math.cos(around), radius * up, radius * flat * Math.sin(around)], i * 3);
+    seeds[i] = rand();
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+  const stars = new THREE.Points(geometry, new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    fog: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTime: shared.uTime, uPR: shared.uPR },
+    vertexShader: /* glsl */`
+      attribute float aSeed;
+      uniform float uTime, uPR;
+      varying float vAlpha;
+      void main() {
+        // each star twinkles at its own speed
+        vAlpha = (0.25 + 0.75 * aSeed) * (0.6 + 0.4 * sin(uTime * (0.5 + aSeed * 2.0) + aSeed * 90.0));
+        gl_PointSize = (1.0 + aSeed * 1.6) * uPR;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
-    fragmentShader:`
-      uniform float uDisperse;
-      varying vec3 vColor;varying float vBloom,vGlow,vType,vRot,vPetals,vAlpha;
-      void main(){
-        vec2 p=gl_PointCoord*2.-1.;float c=cos(vRot),s=sin(vRot);p=mat2(c,-s,s,c)*p;
-        float r=length(p);vec3 col;float a;float dotA=exp(-r*r*9.);
-        if(vType<.5){
-          float ang=atan(p.y,p.x),open=mix(.38,1.,vBloom);
-          float pet=pow(abs(cos(ang*vPetals*.5)),.7);
-          float R=(.36+.56*pet)*open*.95;
-          float petal=1.-smoothstep(R-.12,R,r);
-          float inner=clamp(1.-r/max(R,.01),0.,1.);
-          float core=1.-smoothstep(0.,.2*open,r);
-          col=mix(vColor*(.3+.95*inner*inner),mix(vec3(.95,.92,1.),vColor,.35),core);
-          a=max(petal*.6,core*.8)+exp(-r*r*5.)*.12;
-          col=mix(col,vColor*1.5+.15,uDisperse);a=mix(a,dotA,uDisperse);
-        }else{
-          float w=.42*(1.-p.y*p.y);
-          float leaf=(1.-smoothstep(w-.1,w,abs(p.x)))*step(abs(p.y),1.);
-          float vein=(1.-smoothstep(0.,.05,abs(p.x)))*.45;
-          col=vColor*(.4+vein+.3*(1.-abs(p.y)));a=leaf*.4;
-          a=mix(a,dotA*.5,uDisperse);
-        }
-        col*=.55;col+=vGlow*vec3(1.,.95,.85)*.9;a*=vAlpha*(1.+vGlow*.6);
-        if(a<.003)discard;
-        gl_FragColor=vec4(col,a);
-      }`}));
-  flowers.frustumCulled=false; scene.add(flowers);
+    fragmentShader: /* glsl */`
+      varying float vAlpha;
+      void main() {
+        float r = length(gl_PointCoord - 0.5);
+        gl_FragColor = vec4(vec3(0.85, 0.9, 1.0), (1.0 - smoothstep(0.1, 0.5, r)) * vAlpha * 0.8);
+      }`,
+  }));
+  stars.frustumCulled = false;
+  scene.add(stars);
 
-  /* a hooded wanderer with a lantern, standing in the flowers left of the path; turns to face you */
-  const wanderer=new THREE.Group(); scene.add(wanderer);
-  {
-    const WW=1.5, WH=3.75;
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 1000" width="512" height="1280">
-      <defs>
-        <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4466"/><stop offset=".55" stop-color="#262d45"/><stop offset="1" stop-color="#151a2a"/></linearGradient>
-        <linearGradient id="rim" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8f9bd0" stop-opacity=".55"/><stop offset=".5" stop-color="#8f9bd0" stop-opacity="0"/><stop offset="1" stop-color="#c6b8ff" stop-opacity=".6"/></linearGradient>
-        <radialGradient id="lg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#f4f0ff"/><stop offset=".55" stop-color="#cdbfff"/><stop offset="1" stop-color="#9c86ff"/></radialGradient>
-      </defs>
-      <path d="M200 38C150 38 118 80 116 140C114 192 128 222 118 262C90 380 72 600 58 962L342 962C328 600 310 380 282 262C272 222 286 192 284 140C282 80 250 38 200 38Z" fill="url(#c)"/>
-      <path d="M200 38C150 38 118 80 116 140C114 192 128 222 118 262C90 380 72 600 58 962L342 962C328 600 310 380 282 262C272 222 286 192 284 140C282 80 250 38 200 38Z" fill="none" stroke="url(#rim)" stroke-width="5"/>
-      <g stroke="#06080d" stroke-opacity=".55" stroke-width="7" fill="none" stroke-linecap="round">
-        <path d="M168 300C150 480 132 700 118 950"/><path d="M212 320C214 520 210 740 206 955"/><path d="M246 300C262 500 280 720 292 950"/>
-      </g>
-      <ellipse cx="200" cy="158" rx="44" ry="58" fill="#030409"/>
-      <path d="M276 330C300 380 318 440 326 520" stroke="#1a2032" stroke-width="30" stroke-linecap="round" fill="none"/>
-      <path d="M326 520L330 572" stroke="#3b3550" stroke-width="3"/>
-      <rect x="312" y="572" width="38" height="54" rx="7" fill="url(#lg)"/>
-      <rect x="308" y="566" width="46" height="10" rx="4" fill="#2a2840"/>
-      <rect x="310" y="622" width="42" height="8" rx="3" fill="#2a2840"/>
-      <path d="M331 576V622" stroke="#2a2840" stroke-width="3"/>
-    </svg>`;
-    const cnv=document.createElement('canvas'); cnv.width=512; cnv.height=1280;
-    const tex=new THREE.CanvasTexture(cnv); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4;
-    const img=new Image(); img.onload=()=>{cnv.getContext('2d').drawImage(img,0,0,512,1280); tex.needsUpdate=true};
-    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-    const body=new THREE.Mesh(new THREE.PlaneGeometry(WW,WH).translate(0,WH/2,0),new THREE.MeshBasicMaterial({map:tex,alphaTest:.5,fog:true,color:0xffffff}));
-    wanderer.add(body);
-    // lantern glow: a soft additive sprite plus a small light on the ground
-    const gc=document.createElement('canvas'); gc.width=gc.height=128; const g2=gc.getContext('2d');
-    const rg=g2.createRadialGradient(64,64,0,64,64,64); rg.addColorStop(0,'rgba(240,234,255,1)'); rg.addColorStop(.25,'rgba(190,170,255,.55)'); rg.addColorStop(1,'rgba(150,120,255,0)');
-    g2.fillStyle=rg; g2.fillRect(0,0,128,128);
-    const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(gc),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:true}));
-    const lx=(331/400-.5)*WW, ly=(1-599/1000)*WH;
-    glow.position.set(lx,ly,.05); glow.scale.set(1.5,1.5,1); wanderer.add(glow);
-    const lamp=new THREE.PointLight(0xb9a6ff,6,14,2); lamp.position.set(lx,ly,.3); wanderer.add(lamp);
-    wanderer.userData.glow=glow; wanderer.userData.body=body;
-    // Your own figure: put a transparent-background PNG named gardener.png next to this page
-    // and it replaces the drawn wanderer (kept 3.6 units tall, width from the image's shape).
-    new THREE.TextureLoader().load('gardener.png',t=>{
-      t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4;
-      const h=3.6, w=h*t.image.width/t.image.height;
-      body.geometry.dispose(); body.geometry=new THREE.PlaneGeometry(w,h).translate(0,h/2,0);
-      body.material.map=t; body.material.color.set(0xd6d8e6); body.material.transparent=true; body.material.opacity=.9; body.material.needsUpdate=true;
-      glow.visible=false; lamp.visible=false;
-    },undefined,()=>{/* no gardener.png: keep the drawn wanderer */});
-    // place it about 55 units into the walk, 7 units to the left of the path
-    const a=pathAt(55,new THREE.Vector3()), b=pathAt(56,new THREE.Vector3());
-    const f=new THREE.Vector3(b.x-a.x,0,b.z-a.z).normalize(), rt=f.clone().cross(new THREE.Vector3(0,1,0));
-    const wx=a.x-rt.x*7, wz=a.z-rt.z*7;
-    wanderer.position.set(wx,ground(wx,wz)-.05,wz);
-  }
-
-  /* light rays */
-  const rays=[], rayGeo=new THREE.PlaneGeometry(1,1); rayGeo.translate(0,.5,0);
-  for(let i=0;i<(SMALL?22:36);i++){
-    const k=Math.random()*NS|0, side=Math.random()<.5?-1:1, off=side*(8+Math.random()*30);
-    const j=(k+1)%NS; let tx=PX[j]-PX[k],tz=PZ[j]-PZ[k];const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
-    const x=PX[k]-tz*off, z=PZ[k]+tx*off;
-    const m=new THREE.Mesh(rayGeo,new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false,side:THREE.DoubleSide,
-      uniforms:{uTime:U.uTime,uSeed:{value:Math.random()*10},uInt:{value:0}},
-      vertexShader:`varying vec2 vUv;varying float vD;void main(){vUv=uv;vec4 w=modelMatrix*vec4(position,1.);vD=length(w.xyz-cameraPosition);gl_Position=projectionMatrix*viewMatrix*w;}`,
-      fragmentShader:`uniform float uTime,uSeed,uInt;varying vec2 vUv;varying float vD;void main(){
-        float x=1.-abs(vUv.x-.5)*2.;float a=x*x*smoothstep(0.,.3,vUv.y)*(1.-smoothstep(.35,1.,vUv.y));
-        a*=.55+.45*sin(uTime*.25+uSeed*6.);a*=(1.-smoothstep(50.,170.,vD))*smoothstep(5.,18.,vD)*uInt;
-        gl_FragColor=vec4(vec3(.55,.82,1.),a*.11);}`}));
-    m.position.set(x,ground(x,z)-1,z); m.scale.set(5+Math.random()*7,55+Math.random()*40,1);
-    m.rotation.order='YXZ'; m.userData.tilt=(Math.random()-.5)*.5; m.frustumCulled=false;
-    scene.add(m); rays.push(m);
-  }
-
-  /* dust */
-  const ND=SMALL?900:1800, dp=new Float32Array(ND*3), dsd=new Float32Array(ND);
-  for(let i=0;i<ND;i++){dp.set([(Math.random()-.5)*60,(Math.random()-.5)*30,(Math.random()-.5)*60],i*3);dsd[i]=Math.random()}
-  const DG=new THREE.BufferGeometry();DG.setAttribute('position',new THREE.BufferAttribute(dp,3));DG.setAttribute('aS',new THREE.BufferAttribute(dsd,1));
-  const dust=new THREE.Points(DG,new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
-    uniforms:{uTime:U.uTime,uCam:U.uCam,uScale:U.uScale,uIntro:U.uIntro},
-    vertexShader:`attribute float aS;uniform float uTime,uScale,uIntro;uniform vec3 uCam;varying float vA;void main(){
-      vec3 p=position+vec3(sin(uTime*.1+position.y)*1.2,uTime*(.15+aS*.35),cos(uTime*.12+position.x)*1.2);
-      p=mod(p-uCam+vec3(30.,15.,30.),vec3(60.,30.,60.))-vec3(30.,15.,30.)+uCam;
-      vec4 mv=modelViewMatrix*vec4(p,1.);float d=-mv.z;
-      vA=(1.-smoothstep(6.,30.,d))*smoothstep(.5,2.,d)*(.3+.7*aS)*uIntro;
-      gl_PointSize=clamp((.05+aS*.06)*uScale/max(d,.01),0.,30.);gl_Position=projectionMatrix*mv;}`,
-    fragmentShader:`varying float vA;void main(){float r=length(gl_PointCoord-.5);gl_FragColor=vec4(vec3(1.,.93,.8),(1.-smoothstep(0.,.5,r))*vA*.7);}`}));
-  dust.frustumCulled=false; scene.add(dust);
-
-  /* post-processing: bloom, split-RGB noise, speed vignette */
-  const bloomComposer=new EffectComposer(renderer); bloomComposer.renderToScreen=false;
-  bloomComposer.setPixelRatio(DPR*.5); bloomComposer.setSize(innerWidth,innerHeight);
-  bloomComposer.addPass(new RenderPass(scene,camera));
-  const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.75,.55,.22); bloomComposer.addPass(bloom);
-  const composer=new EffectComposer(renderer); composer.setPixelRatio(DPR); composer.setSize(innerWidth,innerHeight);
-  composer.addPass(new RenderPass(scene,camera));
-  composer.addPass(new ShaderPass({uniforms:{tDiffuse:{value:null},tBloom:{value:bloomComposer.renderTarget2.texture}},
-    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`uniform sampler2D tDiffuse,tBloom;varying vec2 vUv;void main(){gl_FragColor=texture2D(tDiffuse,vUv)+vec4(texture2D(tBloom,vUv).rgb,0.);}`}));
-  const blackout=new THREE.MeshBasicMaterial({color:0x000000,alphaTest:.5,fog:false});
-  const fx=new ShaderPass({uniforms:{tDiffuse:{value:null},uTime:{value:0},uSpeed:{value:0}},
-    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime,uSpeed;varying vec2 vUv;
-      float rnd(vec2 c){return fract(sin(dot(c,vec2(12.9898,78.233)))*43758.5453);}
-      void main(){vec2 uv=vUv,c=uv-.5;float amt=(.0012+uSpeed*.005)*(.4+length(c)*1.8);
-        float n=rnd(vec2(floor(uv.y*220.),floor(uTime*18.)));vec2 o=c*amt+vec2((n-.5)*amt*.7,0.);
-        vec3 col=vec3(texture2D(tDiffuse,uv+o).r,texture2D(tDiffuse,uv).g,texture2D(tDiffuse,uv-o).b);
-        col+=(rnd(uv*vec2(1717.,913.)+fract(uTime*7.))-.5)*.03;
-        float l=length(c*vec2(1.,.82));col*=1.-smoothstep(.28-uSpeed*.14,.92-uSpeed*.32,l)*.88;
-        gl_FragColor=vec4(max(col,0.),1.);}`});
-  composer.addPass(fx); composer.addPass(new OutputPass());
-
-  function resize(){
-    const w=innerWidth,h=innerHeight;camera.aspect=w/h;camera.fov=w<h?78:64;camera.updateProjectionMatrix();U.uNear.value.set(w<h?.45:1.2,w<h?2.2:5.);
-    renderer.setSize(w,h);composer.setSize(w,h);bloomComposer.setSize(w,h);
-    U.uScale.value=h*DPR/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)));U.uAspect.value=w/h;
-  }
-  addEventListener('resize',resize); resize();
-
-  /* input: virtual scroller, mouse, hover transition */
-  const BASE=.0035, WHEEL=10, TOUCH=20;
-  let target=0, cur=0, prev=0, speed=0, hover=0, hoverT=0;
-  addEventListener('wheel',e=>{e.preventDefault();const k=e.deltaMode===1?16:e.deltaMode===2?innerHeight:1;target-=e.deltaY*k*BASE*WHEEL},{passive:false});
-  const touchPts=e=>{const t=e.touches;
-    if(t[0]){setMouse(t[0],true)}else mouseOnT=0;
-    if(t[1]){mouse2T.set(t[1].clientX/innerWidth*2-1,-(t[1].clientY/innerHeight)*2+1);if(!mouse2On)mouse2S.copy(mouse2T);mouse2On=1}else mouse2On=0};
-  addEventListener('touchstart',touchPts,{passive:true}); addEventListener('touchmove',touchPts,{passive:true});
-  addEventListener('touchend',touchPts); addEventListener('touchcancel',touchPts);
-  addEventListener('keydown',e=>{const s={ArrowUp:6,PageUp:20,' ':12,ArrowDown:-6,PageDown:-20}[e.key];if(s&&e.target===document.body){e.preventDefault();target+=s}});
-  const mouseT=new THREE.Vector2(), mouseS=new THREE.Vector2(), mouse2T=new THREE.Vector2(), mouse2S=new THREE.Vector2(), tiltT=new THREE.Vector2(), tilt=new THREE.Vector2();
-  let mouseOnT=0, mouse2On=0;
-  // touches push flowers but don't tilt the camera; a mouse does both
-  function setMouse(p,touch){mouseT.set(p.clientX/innerWidth*2-1,-(p.clientY/innerHeight)*2+1);mouseOnT=1;if(!touch)tiltT.copy(mouseT)}
-  addEventListener('pointermove',e=>{if(e.pointerType!=='touch')setMouse(e)});
-  document.documentElement.addEventListener('pointerleave',()=>{mouseOnT=0});
-  // drag to look around (mouse or finger): turn and tilt; double-click or double-tap faces forward again
-  let yawT=0, pitchT=0, yaw=0, pitch=0, drag=null, vYaw=0, vPitch=0, lastMove=0;
-  let lastTap=0, isTouch=false;
-  addEventListener('pointerdown',e=>{isTouch=e.pointerType==='touch'},true);
-  const recenter=()=>{vYaw=vPitch=0;yawT=Math.round(yaw/(2*Math.PI))*2*Math.PI;pitchT=0};
-  addEventListener('pointerdown',e=>{if(e.target.closest('a,button')||(e.pointerType==='mouse'&&e.button!==0))return;if(drag)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY,touch:e.pointerType==='touch'};vYaw=vPitch=0;lastMove=performance.now();document.documentElement.classList.add('dragging');
-    if(e.pointerType==='touch'){const n=performance.now();if(n-lastTap<300)recenter();lastTap=n}});
-  addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;const k=1.15*Math.PI/innerHeight*(64/90),dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
-    const kk=(drag.touch?k*1.05:k)*.85, n=performance.now(), el=Math.max(8,n-lastMove)/1000; lastMove=n;
-    yawT+=dx*kk; pitchT=Math.max(-.75,Math.min(1.05,pitchT+dy*kk));
-    // remember how fast the finger was moving, for a gentle glide after letting go
-    vYaw+=(dx*kk/el*.45-vYaw)*.35; vPitch+=(dy*kk/el*.45-vPitch)*.35});
-  const endDrag=e=>{if(drag&&e&&e.pointerId!==drag.id)return;if(drag&&performance.now()-lastMove>60){vYaw=vPitch=0}drag=null;document.documentElement.classList.remove('dragging')};
-  addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
-  addEventListener('dblclick',e=>{if(!e.target.closest('a,button'))recenter()});
-  let walk=0;
-  [['fwd',1],['back',-1]].forEach(([id,dir])=>{
-    const b=$(id); let downAt=0;
-    const stop=()=>{if(walk===dir)walk=0;b.classList.remove('held')};
-    b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture&&b.setPointerCapture(e.pointerId);walk=dir;downAt=performance.now();target+=dir*4;b.classList.add('held')});
-    b.addEventListener('pointerup',stop); b.addEventListener('pointercancel',stop); b.addEventListener('lostpointercapture',stop);
-    b.addEventListener('click',e=>{if(e.detail===0)target+=dir*8});   // keyboard Enter / Space
-    b.addEventListener('contextmenu',e=>e.preventDefault());
-  });
-  const go=$('go');
-  go.addEventListener('pointerenter',()=>{hoverT=1;audio.muffle(true)});
-  go.addEventListener('pointerleave',()=>{hoverT=0;audio.muffle(false)});
-  go.addEventListener('focus',()=>{if(go.matches(':focus-visible')){hoverT=1;audio.muffle(true)}});
-  go.addEventListener('blur',()=>{hoverT=0;audio.muffle(false)});
-  go.addEventListener('contextmenu',e=>e.preventDefault());
-
-  /* loop */
-  const clock=new THREE.Clock(), INTRO=4.2;
-  let t0=null, introDone=false, first=true;
-  const cp=new THREE.Vector3(), lp=new THREE.Vector3(), la=new THREE.Vector3(), right=new THREE.Vector3(), up=new THREE.Vector3(0,1,0);
-  const ease=x=>1-Math.pow(1-x,3);
-  function frame(){
-    const dt=Math.min(clock.getDelta(),.05), time=clock.elapsedTime;
-    if(t0===null) t0=time;
-    const it=Math.min(1,(time-t0)/INTRO), ie=ease(it);
-    hover+=(hoverT-hover)*(1-Math.exp(-dt*(hoverT?1.4:1.8)));
-    // idle forward drift, eased to a stop while hovering the arrow
-    target+=dt*(REDUCE?.5:1.5)*(1-hover)*ie + walk*dt*16;
-    if(hover>.01) target+=(cur-target)*(1-Math.exp(-dt*3*hover));
-    cur+=(target-cur)*(1-Math.exp(-dt*2.4));
-    const v=Math.abs(cur-prev)/Math.max(dt,1e-4); prev=cur;
-    speed+=(Math.min(1,v/30)-speed)*(1-Math.exp(-dt*3));
-    mouseS.lerp(mouseT,1-Math.exp(-dt*(isTouch?8:4)));
-    U.uMouseOn.value+=(mouseOnT-U.uMouseOn.value)*(1-Math.exp(-dt*3));
-    U.uMouse.value.copy(mouseS);
-    mouse2S.lerp(mouse2T,1-Math.exp(-dt*8)); U.uMouse2.value.copy(mouse2S);
-    U.uMouseOn2.value+=(mouse2On-U.uMouseOn2.value)*(1-Math.exp(-dt*4));
-    tilt.lerp(tiltT,1-Math.exp(-dt*4));
-
-    const s=cur-(1-ie)*45;
-    pathAt(s,cp); pathAt(s+14,lp);
-    right.set(lp.x-cp.x,0,lp.z-cp.z).normalize().cross(up);
-    camera.position.set(cp.x,cp.y+2.5+(1-ie)*34+Math.sin(time*.5)*.08,cp.z);
-    la.copy(lp).addScaledVector(up,1.4-(1-ie)*6+tilt.y*1.8).addScaledVector(right,tilt.x*3.2);
-    camera.lookAt(la);
-    if(!drag&&(vYaw||vPitch)){                       // glide after a flick, easing to a stop
-      yawT+=vYaw*dt; pitchT=Math.max(-.75,Math.min(1.05,pitchT+vPitch*dt));
-      const f=Math.exp(-dt*7.5); vYaw*=f; vPitch*=f; if(Math.abs(vYaw)+Math.abs(vPitch)<.01) vYaw=vPitch=0;
-    }
-    const lookRate=drag?22:12;
-    yaw+=(yawT-yaw)*(1-Math.exp(-dt*lookRate)); pitch+=(pitchT-pitch)*(1-Math.exp(-dt*lookRate));
-    camera.rotateOnWorldAxis(up,yaw); camera.rotateX(pitch);
-    camera.rotateZ(-tilt.x*.025);
-    wanderer.rotation.y=Math.atan2(camera.position.x-wanderer.position.x,camera.position.z-wanderer.position.z);
-    wanderer.userData.glow.material.opacity=.85+.15*Math.sin(time*2.3)*Math.sin(time*1.7+1.);
-
-    U.uTime.value=time; U_TIME.value=time; U.uIntro.value=it; U.uDisperse.value=hover*hover*(3-2*hover); U.uCam.value.copy(camera.position);
-    scene.userData.stars.material.uniforms.uTime.value=time;
-    sky.position.copy(camera.position); scene.userData.stars.position.copy(camera.position);
-    moon.position.copy(camera.position).addScaledVector(moonDir,1500); moon.lookAt(camera.position);
-    const rayInt=ie*(1-hover*.6);
-    for(const r of rays){r.rotation.set(0,Math.atan2(camera.position.x-r.position.x,camera.position.z-r.position.z),r.userData.tilt);r.material.uniforms.uInt.value=rayInt}
-    fx.uniforms.uTime.value=time; fx.uniforms.uSpeed.value=speed;
-    bloom.strength=.75+hover*.4;
-
-    { const b=wanderer.userData.body, m=b.material; blackout.map=m.map; blackout.needsUpdate=blackout.userData.map!==m.map; blackout.userData.map=m.map;
-      b.material=blackout; bloomComposer.render(); b.material=m; }
-    composer.render();
-    if(first){first=false;requestAnimationFrame(()=>loaderEl.classList.add('gone'))}
-    if(!introDone&&it>=.92){introDone=true;uiEl.classList.add('on')}
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
+  return {
+    // sky and stars travel with the camera, so they always look infinitely far away
+    follow(cameraPosition) {
+      dome.position.copy(cameraPosition);
+      stars.position.copy(cameraPosition);
+    },
+  };
 }
-// let the loader paint before the valley is built
-requestAnimationFrame(()=>setTimeout(boot,30));
+
+// ---- Moon: dim, behind slow drifting clouds, fixed in the sky --------
+function buildMoon(scene, path, shared) {
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(420, 420),
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,          // depth test stays on, so hills can pass in front of it
+      fog: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uTime: shared.uTime },
+      vertexShader: UV_VERTEX_SHADER,
+      fragmentShader: /* glsl */`
+        uniform float uTime;
+        varying vec2 vUv;
+
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float noise(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+        }
+        float fbm(vec2 p) {
+          float sum = 0.0, amplitude = 0.5;
+          for (int i = 0; i < 5; i++) { sum += amplitude * noise(p); p = p * 2.03 + vec2(1.7, 9.2); amplitude *= 0.5; }
+          return sum;
+        }
+
+        void main() {
+          vec2 q = (vUv * 2.0 - 1.0) / 0.2;      // the moon's disc has radius 1 in these units
+          float r = length(q);
+
+          // disc with darker "seas" and a slightly darker rim
+          float disc = 1.0 - smoothstep(0.96, 1.0, r);
+          float seas = noise(q * 2.6 + 3.0) * 0.55 + noise(q * 6.0 + 9.0) * 0.3 + noise(q * 14.0) * 0.15;
+          float limb = sqrt(max(0.0, 1.0 - r * r));
+          vec3 moonColor = vec3(0.9, 0.9, 1.0) * (0.55 + 0.45 * limb) * (1.0 - smoothstep(0.42, 0.7, seas) * 0.38);
+
+          // a drifting bank of cloud in front of it
+          float cloud = fbm(q * vec2(0.32, 0.8) + vec2(uTime * 0.035, uTime * 0.006));
+          cloud = smoothstep(0.26, 0.66, cloud + fbm(q * vec2(0.8, 1.6) - vec2(uTime * 0.05, 0.0)) * 0.25 - 0.08);
+          float shineThrough = 1.0 - cloud * 0.9;
+
+          float halo = exp(-max(r - 1.0, 0.0) * 1.6) * (1.0 - disc);
+          float moonlitCloud = exp(-r * 0.55);
+          float fadeEdges = 1.0 - smoothstep(3.2, 4.9, r);   // hide the square edge of the plane
+
+          vec3 color = moonColor * disc * 0.2 * shineThrough
+                     + vec3(0.5, 0.52, 0.8) * halo * 0.07 * shineThrough
+                     + vec3(0.6, 0.6, 0.78) * cloud * moonlitCloud * 0.12;
+          gl_FragColor = vec4(color * fadeEdges, 1.0);
+        }`,
+    }),
+  );
+  mesh.frustumCulled = false;
+  mesh.renderOrder = -1;
+  scene.add(mesh);
+
+  const direction = findMoonDirection(path);
+  return {
+    // stay 1500 units away in one fixed direction, facing the camera
+    follow(cameraPosition) {
+      mesh.position.copy(cameraPosition).addScaledVector(direction, 1500);
+      mesh.lookAt(cameraPosition);
+    },
+  };
+}
+
+// From near the start of the walk, scan the horizon and set the moon in the
+// deepest dip between two hills (preferring dips close to straight ahead).
+function findMoonDirection(path) {
+  const start = path.at(10, new THREE.Vector3()), ahead = path.at(24, new THREE.Vector3());
+  const eye = start.y + SETTINGS.eyeHeight;
+  const forward = new THREE.Vector3(ahead.x - start.x, 0, ahead.z - start.z).normalize();
+  const right = forward.clone().cross(new THREE.Vector3(0, 1, 0));
+  const edge = SETTINGS.terrainSize / 2 - 2;
+  const DEG = Math.PI / 180;
+
+  // horizon height (as an angle) for each heading from 42° left to 42° right
+  const horizon = [], headings = [];
+  for (let i = -42; i <= 42; i++) {
+    const heading = i * DEG;
+    const dx = forward.x * Math.cos(heading) + right.x * Math.sin(heading);
+    const dz = forward.z * Math.cos(heading) + right.z * Math.sin(heading);
+    let highest = -1;
+    for (let d = 10; d < 620; d += 3) {
+      const x = start.x + dx * d, z = start.z + dz * d;
+      if (Math.abs(x) > edge || Math.abs(z) > edge) break;
+      highest = Math.max(highest, Math.atan2(groundHeight(x, z) - eye, d));
+    }
+    horizon.push(highest);
+    headings.push(heading);
+  }
+
+  // a dip = a low point with higher hills within 10° on both sides
+  let best = -1, bestScore = 0;
+  for (let i = 10; i < horizon.length - 10; i++) {
+    let leftPeak = -1, rightPeak = -1;
+    for (let k = 1; k <= 10; k++) {
+      leftPeak = Math.max(leftPeak, horizon[i - k]);
+      rightPeak = Math.max(rightPeak, horizon[i + k]);
+    }
+    const score = Math.min(leftPeak, rightPeak) - horizon[i] - Math.abs(headings[i]) * 0.02;
+    if (horizon[i] < 0.42 && score > bestScore) { bestScore = score; best = i; }
+  }
+
+  const heading = best < 0 ? -0.32 : headings[best];
+  const elevation = best < 0 ? 0.44 : Math.max(0.06, horizon[best] + 0.032);   // sit just above the dip
+  return forward.multiplyScalar(Math.cos(elevation) * Math.cos(heading))
+    .addScaledVector(right, Math.cos(elevation) * Math.sin(heading))
+    .add(new THREE.Vector3(0, Math.sin(elevation), 0))
+    .normalize();
+}
+
+// ---- Flowers and leaves ---------------------------------------------
+// Every flower and leaf is one point sprite; the shaders draw their shapes.
+// The field is split into 80×80-unit patches so three.js can skip patches
+// that are out of view, and we skip patches lost in the fog.
+const FLOWER_VERTEX_SHADER = /* glsl */`
+  uniform float uTime, uScale, uIntro, uDisperse, uAspect, uMouseOn, uMouseOn2, uMaxPx, uPR;
+  uniform vec2 uMouse, uMouse2, uNear;
+  uniform vec3 uCam;
+  attribute vec3 color;
+  attribute vec4 aSeed;       // x: random 0–1, y: rotation, z: petal count, w: 0 = flower, 1 = leaf
+  varying vec3 vColor;
+  varying float vBloom, vGlow, vType, vRot, vPetals, vAlpha, vTiny;
+
+  void main() {
+    float seed = aSeed.x, type = aSeed.w;
+    vec3 p = position;
+
+    // gentle sway
+    p.x += sin(uTime * 0.8 + seed * 40.0 + p.z * 0.15) * 0.07;
+    p.z += cos(uTime * 0.7 + seed * 30.0 + p.x * 0.12) * 0.06;
+
+    // scatter: drift outward and upward into floating particles
+    float scatter = uDisperse;
+    vec3 toPoint = p - uCam;
+    vec3 outward = normalize(vec3(toPoint.x, 0.0, toPoint.z) + 1e-4);
+    vec3 r = vec3(fract(seed * 127.1) - 0.5, fract(seed * 311.7), fract(seed * 74.7) - 0.5);
+    p += (outward * (2.0 + seed * 7.0) + vec3(r.x * 7.0, 1.5 + r.y * 8.0, r.z * 7.0)) * scatter;
+    p += vec3(sin(uTime * 0.5 + seed * 20.0), sin(uTime * 0.6 + seed * 13.0) * 1.4, cos(uTime * 0.45 + seed * 17.0)) * 0.7 * scatter;
+
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    float dist = -mv.z;
+
+    // grow in during the intro, each at its own moment
+    float intro = smoothstep(seed * 0.55, seed * 0.55 + 0.45, uIntro);
+    // flowers open as you approach; leaves fill in further back
+    float bloom = 1.0 - smoothstep(5.0, 55.0, dist);
+    float leafGrow = 1.0 - smoothstep(35.0, 120.0, dist);
+    float worldSize = type < 0.5
+      ? (0.5 + seed * 0.55) * mix(0.34, 1.0, bloom)
+      : (0.75 + seed * 0.7) * mix(0.25, 1.0, leafGrow);
+    worldSize *= intro;
+    worldSize = mix(worldSize, 0.14 + seed * 0.16, scatter);
+
+    // cursor / finger push, in screen space, only for flowers near you
+    vec4 clip = projectionMatrix * mv;
+    vec2 ndc = clip.xy / clip.w;
+    float inFront = step(0.0, clip.w);
+    vec2 aspect = vec2(uAspect, 1.0);
+    vec2 d1 = (ndc - uMouse) * aspect, d2 = (ndc - uMouse2) * aspect;
+    float m1 = length(d1), m2 = length(d2);
+    float nearby = 1.0 - smoothstep(14.0, 45.0, dist);
+    ndc += (d1 / (m1 + 1e-4)) * exp(-m1 * m1 * 34.0) * 0.055 * nearby * uMouseOn  * inFront / aspect;
+    ndc += (d2 / (m2 + 1e-4)) * exp(-m2 * m2 * 34.0) * 0.055 * nearby * uMouseOn2 * inFront / aspect;
+    clip.xy = ndc * clip.w;
+
+    // depth-test a little in front of the flower, so the ground just in front of it
+    // can't slice the sprite flat (scaled to its size, so far flowers still sit on the hills)
+    vec4 lifted = projectionMatrix * vec4(mv.xy, mv.z + min(dist * 0.45, 0.3 + worldSize * 2.6), 1.0);
+    clip.z = lifted.z / lifted.w * clip.w;
+    gl_Position = clip;
+
+    vGlow = min(1.0, (exp(-m1 * m1 * 90.0) * uMouseOn + exp(-m2 * m2 * 90.0) * uMouseOn2) * mix(0.25, 1.0, nearby));
+
+    // far-off flowers keep a minimum size and become soft glowing dots, so the hillsides read as covered
+    float px = worldSize * uScale / max(dist, 0.01);
+    vTiny = type < 0.5 ? 1.0 - smoothstep(3.0 * uPR, 9.0 * uPR, px) : 0.0;
+    gl_PointSize = clamp(type < 0.5 ? max(px, 3.6 * uPR * intro) : px, 0.0, uMaxPx);
+
+    // fade out very close (so nothing fills the lens) and into the fog far away
+    vAlpha = smoothstep(uNear.x, uNear.y, dist) * exp(-pow(dist * 0.0088, 1.5)) * intro;
+
+    vColor = color;
+    vBloom = bloom;
+    vType = type;
+    vPetals = aSeed.z;
+    vRot = aSeed.y + sin(uTime * 0.3 + seed * 9.0) * 0.15;
+  }`;
+
+const FLOWER_FRAGMENT_SHADER = /* glsl */`
+  uniform float uDisperse;
+  varying vec3 vColor;
+  varying float vBloom, vGlow, vType, vRot, vPetals, vAlpha, vTiny;
+
+  void main() {
+    vec2 p = gl_PointCoord * 2.0 - 1.0;
+    float c = cos(vRot), s = sin(vRot);
+    p = mat2(c, -s, s, c) * p;
+    float r = length(p);
+    float softDot = exp(-r * r * 9.0);
+    vec3 color;
+    float alpha;
+
+    if (vType < 0.5) {
+      // flower: petals from a polar shape, brighter toward the middle, with a pale core
+      float open = mix(0.38, 1.0, vBloom);
+      float petal = pow(abs(cos(atan(p.y, p.x) * vPetals * 0.5)), 0.7);
+      float edge = (0.36 + 0.56 * petal) * open * 0.95;
+      float inside = 1.0 - smoothstep(edge - 0.12, edge, r);
+      float towardMiddle = clamp(1.0 - r / max(edge, 0.01), 0.0, 1.0);
+      float core = 1.0 - smoothstep(0.0, 0.2 * open, r);
+      color = mix(vColor * (0.3 + 0.95 * towardMiddle * towardMiddle), mix(vec3(0.95, 0.92, 1.0), vColor, 0.35), core);
+      alpha = max(inside * 0.6, core * 0.8) + exp(-r * r * 5.0) * 0.12;
+      // scattered → glowing particle; tiny and far away → soft dot
+      color = mix(color, vColor * 1.5 + 0.15, uDisperse);
+      alpha = mix(alpha, softDot, uDisperse);
+      color = mix(color, vColor * 1.8 + 0.1, vTiny);
+      alpha = mix(alpha, min(1.0, softDot * 1.3), vTiny);
+    } else {
+      // leaf: a pointed oval with a centre vein
+      float halfWidth = 0.42 * (1.0 - p.y * p.y);
+      float leaf = (1.0 - smoothstep(halfWidth - 0.1, halfWidth, abs(p.x))) * step(abs(p.y), 1.0);
+      float vein = (1.0 - smoothstep(0.0, 0.05, abs(p.x))) * 0.45;
+      color = vColor * (0.4 + vein + 0.3 * (1.0 - abs(p.y)));
+      alpha = mix(leaf * 0.4, softDot * 0.5, uDisperse);
+    }
+
+    color = color * 0.55 + vGlow * vec3(1.0, 0.95, 0.85) * 0.9;   // glow under the cursor
+    alpha *= vAlpha * (1.0 + vGlow * 0.6);
+    if (alpha < 0.003) discard;
+    gl_FragColor = vec4(color, alpha);
+  }`;
+
+function buildFlowers(scene, path, rand, shared, pixelRatio) {
+  const { flowerCount, leafCount } = SETTINGS;
+  const total = flowerCount + leafCount;
+  const positions = new Float32Array(total * 3);
+  const colors = new Float32Array(total * 3);
+  const seeds = new Float32Array(total * 4);
+  const petalColors = ['#ff7ccf', '#c08cff', '#7fe3ff', '#7b3fe4', '#5a24b8', '#9254f0', '#9fffd8'].map(c => new THREE.Color(c));
+  const leafColors = ['#2c8a6c', '#3aa58a', '#1f6f6a', '#4a9a5a'].map(c => new THREE.Color(c));
+  const spot = new THREE.Vector3();
+
+  for (let i = 0; i < total; i++) {
+    const isLeaf = i >= flowerCount;
+
+    // 60% in a dense band along the valley floor, 40% spread up the hillsides on both sides
+    let side;
+    if (rand() < 0.6) side = ((rand() + rand() + rand() - 1.5) / 1.5) * (isLeaf ? 60 : 42);
+    else side = (rand() < 0.5 ? -1 : 1) * (16 + Math.pow(rand(), 1.5) * (isLeaf ? 150 : 135));
+    if (Math.abs(side) < 2.6) side = Math.sign(side || 1) * (2.6 + rand() * 1.5);   // keep the path clear
+
+    path.beside(rand() * path.length, side, spot);
+    const x = spot.x + (rand() - 0.5) * 2;
+    const z = spot.z + (rand() - 0.5) * 2;
+    const y = groundHeight(x, z) + (isLeaf ? 0.03 + rand() * 0.22 : 0.12 + rand() * 0.5);
+    positions.set([x, y, z], i * 3);
+
+    // flower colours come in drifts (noise picks the family); leaves are random greens
+    const color = isLeaf
+      ? leafColors[Math.floor(rand() * leafColors.length)]
+      : petalColors[Math.floor(valueNoise(x * 0.025 + 11, z * 0.025) * petalColors.length * 1.5 + rand() * 1.3) % petalColors.length];
+    colors.set([color.r, color.g, color.b], i * 3);
+
+    seeds.set([rand(), rand() * Math.PI * 2, 5 + Math.floor(rand() * 4), isLeaf ? 1 : 0], i * 4);
+  }
+
+  const uniforms = {
+    uTime: shared.uTime,
+    uIntro: shared.uIntro,
+    uCam: shared.uCam,
+    uScale: shared.uScale,
+    uPR: shared.uPR,
+    uDisperse: { value: 0 },
+    uAspect: { value: 1 },
+    uMouse: { value: new THREE.Vector2() },
+    uMouseOn: { value: 0 },
+    uMouse2: { value: new THREE.Vector2() },
+    uMouseOn2: { value: 0 },
+    uMaxPx: { value: SETTINGS.maxFlowerPx * pixelRatio },
+    uNear: { value: new THREE.Vector2(1.2, 5) },         // fade-in distances; closer on portrait phones
+  };
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: FLOWER_VERTEX_SHADER,
+    fragmentShader: FLOWER_FRAGMENT_SHADER,
+  });
+
+  // group the points into 80×80 patches
+  const PATCH = 80, patches = new Map();
+  for (let i = 0; i < total; i++) {
+    const key = Math.floor(positions[i * 3] / PATCH) + ',' + Math.floor(positions[i * 3 + 2] / PATCH);
+    if (!patches.has(key)) patches.set(key, []);
+    patches.get(key).push(i);
+  }
+  const chunks = [];
+  for (const members of patches.values()) {
+    const n = members.length;
+    const p = new Float32Array(n * 3), c = new Float32Array(n * 3), s = new Float32Array(n * 4);
+    members.forEach((i, j) => {
+      p.set(positions.subarray(i * 3, i * 3 + 3), j * 3);
+      c.set(colors.subarray(i * 3, i * 3 + 3), j * 3);
+      s.set(seeds.subarray(i * 4, i * 4 + 4), j * 4);
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    geometry.setAttribute('aSeed', new THREE.BufferAttribute(s, 4));
+    geometry.computeBoundingSphere();
+    geometry.boundingSphere.radius += 18;   // room for flowers drifting when they scatter
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+    chunks.push(points);
+  }
+
+  return {
+    uniforms,
+    // skip patches that are entirely beyond the fog
+    cull(cameraPosition) {
+      for (const chunk of chunks) {
+        const sphere = chunk.geometry.boundingSphere;
+        chunk.visible = sphere.center.distanceTo(cameraPosition) - sphere.radius < SETTINGS.drawDistance;
+      }
+    },
+  };
+}
+
+// ---- The wanderer: a hooded figure with a lantern, always turning to face you
+function buildWanderer(scene, path) {
+  const group = new THREE.Group();
+  scene.add(group);
+  const WIDTH = 1.5, HEIGHT = 3.75;
+
+  // drawn as an SVG, painted onto a canvas, used as a texture
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 1000" width="512" height="1280">
+    <defs>
+      <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4466"/><stop offset=".55" stop-color="#262d45"/><stop offset="1" stop-color="#151a2a"/></linearGradient>
+      <linearGradient id="rim" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8f9bd0" stop-opacity=".55"/><stop offset=".5" stop-color="#8f9bd0" stop-opacity="0"/><stop offset="1" stop-color="#c6b8ff" stop-opacity=".6"/></linearGradient>
+      <radialGradient id="lg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#f4f0ff"/><stop offset=".55" stop-color="#cdbfff"/><stop offset="1" stop-color="#9c86ff"/></radialGradient>
+    </defs>
+    <path d="M200 38C150 38 118 80 116 140C114 192 128 222 118 262C90 380 72 600 58 962L342 962C328 600 310 380 282 262C272 222 286 192 284 140C282 80 250 38 200 38Z" fill="url(#c)"/>
+    <path d="M200 38C150 38 118 80 116 140C114 192 128 222 118 262C90 380 72 600 58 962L342 962C328 600 310 380 282 262C272 222 286 192 284 140C282 80 250 38 200 38Z" fill="none" stroke="url(#rim)" stroke-width="5"/>
+    <g stroke="#06080d" stroke-opacity=".55" stroke-width="7" fill="none" stroke-linecap="round">
+      <path d="M168 300C150 480 132 700 118 950"/><path d="M212 320C214 520 210 740 206 955"/><path d="M246 300C262 500 280 720 292 950"/>
+    </g>
+    <ellipse cx="200" cy="158" rx="44" ry="58" fill="#030409"/>
+    <path d="M276 330C300 380 318 440 326 520" stroke="#1a2032" stroke-width="30" stroke-linecap="round" fill="none"/>
+    <path d="M326 520L330 572" stroke="#3b3550" stroke-width="3"/>
+    <rect x="312" y="572" width="38" height="54" rx="7" fill="url(#lg)"/>
+    <rect x="308" y="566" width="46" height="10" rx="4" fill="#2a2840"/>
+    <rect x="310" y="622" width="42" height="8" rx="3" fill="#2a2840"/>
+    <path d="M331 576V622" stroke="#2a2840" stroke-width="3"/>
+  </svg>`;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 1280;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  const image = new Image();
+  image.onload = () => { canvas.getContext('2d').drawImage(image, 0, 0, 512, 1280); texture.needsUpdate = true; };
+  image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+  const body = new THREE.Mesh(
+    new THREE.PlaneGeometry(WIDTH, HEIGHT).translate(0, HEIGHT / 2, 0),   // origin at the feet
+    new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.5 }),
+  );
+  group.add(body);
+
+  // lantern: a soft glowing sprite, plus a small purple light on the ground
+  const glowCanvas = document.createElement('canvas');
+  glowCanvas.width = glowCanvas.height = 128;
+  const g = glowCanvas.getContext('2d');
+  const gradient = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0, 'rgba(240,234,255,1)');
+  gradient.addColorStop(0.25, 'rgba(190,170,255,.55)');
+  gradient.addColorStop(1, 'rgba(150,120,255,0)');
+  g.fillStyle = gradient;
+  g.fillRect(0, 0, 128, 128);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(glowCanvas),
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+  }));
+  const lanternX = (331 / 400 - 0.5) * WIDTH, lanternY = (1 - 599 / 1000) * HEIGHT;   // lantern spot in the drawing
+  glow.position.set(lanternX, lanternY, 0.05);
+  glow.scale.set(1.5, 1.5, 1);
+  group.add(glow);
+  const lamp = new THREE.PointLight(0xb9a6ff, 6, 14, 2);
+  lamp.position.set(lanternX, lanternY, 0.3);
+  group.add(lamp);
+
+  // Your own figure: a transparent-background gardener.png next to this page replaces the drawing
+  // (3.6 units tall, width from the image's shape, 90% opacity, no lantern).
+  new THREE.TextureLoader().load('gardener.png', png => {
+    png.colorSpace = THREE.SRGBColorSpace;
+    png.anisotropy = 4;
+    const height = 3.6, width = height * png.image.width / png.image.height;
+    body.geometry.dispose();
+    body.geometry = new THREE.PlaneGeometry(width, height).translate(0, height / 2, 0);
+    Object.assign(body.material, { map: png, transparent: true, opacity: 0.9 });
+    body.material.color.set(0xd6d8e6);
+    body.material.needsUpdate = true;
+    glow.visible = false;
+    lamp.visible = false;
+  }, undefined, () => { /* no gardener.png: keep the drawn wanderer */ });
+
+  // stand in the flowers beside the path
+  const spot = path.beside(SETTINGS.wanderer.along, SETTINGS.wanderer.side, new THREE.Vector3());
+  group.position.set(spot.x, groundHeight(spot.x, spot.z) - 0.05, spot.z);
+
+  return {
+    update(cameraPosition, time) {
+      group.rotation.y = Math.atan2(cameraPosition.x - group.position.x, cameraPosition.z - group.position.z);
+      glow.material.opacity = 0.85 + 0.15 * Math.sin(time * 2.3) * Math.sin(time * 1.7 + 1);   // lantern flicker
+    },
+  };
+}
+
+// ---- Light rays: tall, faint shafts that always face you ---------------
+function buildLightRays(scene, path, rand, shared) {
+  const geometry = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);   // origin at the bottom
+  const spot = new THREE.Vector3(), rays = [];
+  for (let i = 0; i < SETTINGS.rayCount; i++) {
+    const along = rand() * path.length;
+    const side = (rand() < 0.5 ? -1 : 1) * (8 + rand() * 30);
+    path.beside(along, side, spot);
+    const uniforms = { uTime: shared.uTime, uSeed: { value: rand() * 10 }, uStrength: { value: 0 } };
+    const mesh = new THREE.Mesh(geometry, new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      fog: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      uniforms,
+      vertexShader: /* glsl */`
+        varying vec2 vUv;
+        varying float vDist;
+        void main() {
+          vUv = uv;
+          vec4 world = modelMatrix * vec4(position, 1.0);
+          vDist = length(world.xyz - cameraPosition);
+          gl_Position = projectionMatrix * viewMatrix * world;
+        }`,
+      fragmentShader: /* glsl */`
+        uniform float uTime, uSeed, uStrength;
+        varying vec2 vUv;
+        varying float vDist;
+        void main() {
+          float across = 1.0 - abs(vUv.x - 0.5) * 2.0;
+          float a = across * across * smoothstep(0.0, 0.3, vUv.y) * (1.0 - smoothstep(0.35, 1.0, vUv.y));
+          a *= 0.55 + 0.45 * sin(uTime * 0.25 + uSeed * 6.0);                       // slow breathing
+          a *= (1.0 - smoothstep(50.0, 170.0, vDist)) * smoothstep(5.0, 18.0, vDist); // only at mid distance
+          gl_FragColor = vec4(vec3(0.55, 0.82, 1.0), a * 0.11 * uStrength);
+        }`,
+    }));
+    mesh.position.set(spot.x, groundHeight(spot.x, spot.z) - 1, spot.z);
+    mesh.scale.set(5 + rand() * 7, 55 + rand() * 40, 1);
+    mesh.rotation.order = 'YXZ';   // turn to face you first, then lean
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+    rays.push({ mesh, uniforms, lean: (rand() - 0.5) * 0.5 });
+  }
+
+  return {
+    update(cameraPosition, strength) {
+      for (const ray of rays) {
+        const p = ray.mesh.position;
+        ray.mesh.rotation.set(0, Math.atan2(cameraPosition.x - p.x, cameraPosition.z - p.z), ray.lean);
+        ray.uniforms.uStrength.value = strength;
+      }
+    },
+  };
+}
+
+// ---- Dust: tiny motes drifting in a box that travels with you ---------
+function buildDust(scene, rand, shared) {
+  const count = SETTINGS.dustCount;
+  const positions = new Float32Array(count * 3), seeds = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    positions.set([(rand() - 0.5) * 60, (rand() - 0.5) * 30, (rand() - 0.5) * 60], i * 3);
+    seeds[i] = rand();
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+  const dust = new THREE.Points(geometry, new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTime: shared.uTime, uCam: shared.uCam, uScale: shared.uScale, uIntro: shared.uIntro },
+    vertexShader: /* glsl */`
+      attribute float aSeed;
+      uniform float uTime, uScale, uIntro;
+      uniform vec3 uCam;
+      varying float vAlpha;
+      void main() {
+        // drift and rise, then wrap inside a 60×30×60 box centred on the camera
+        vec3 p = position + vec3(sin(uTime * 0.1 + position.y) * 1.2, uTime * (0.15 + aSeed * 0.35), cos(uTime * 0.12 + position.x) * 1.2);
+        vec3 box = vec3(60.0, 30.0, 60.0);
+        p = mod(p - uCam + box * 0.5, box) - box * 0.5 + uCam;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        float dist = -mv.z;
+        vAlpha = (1.0 - smoothstep(6.0, 30.0, dist)) * smoothstep(0.5, 2.0, dist) * (0.3 + 0.7 * aSeed) * uIntro;
+        gl_PointSize = clamp((0.05 + aSeed * 0.06) * uScale / max(dist, 0.01), 0.0, 30.0);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */`
+      varying float vAlpha;
+      void main() {
+        float r = length(gl_PointCoord - 0.5);
+        gl_FragColor = vec4(vec3(1.0, 0.93, 0.8), (1.0 - smoothstep(0.0, 0.5, r)) * vAlpha * 0.7);
+      }`,
+  }));
+  dust.frustumCulled = false;
+  scene.add(dust);
+}
+
+
+/* ---------------------------------------------------------------------
+   7. Post-processing
+   No bloom: all the glow comes from the shaders above. This final pass
+   adds a faint split-RGB shimmer, film grain, and a vignette that
+   tightens as you move faster.
+   --------------------------------------------------------------------- */
+function buildPostProcessing(renderer, scene, camera, pixelRatio) {
+  const composer = new EffectComposer(renderer);
+  composer.setPixelRatio(pixelRatio);
+  composer.setSize(innerWidth, innerHeight);
+  composer.addPass(new RenderPass(scene, camera));
+
+  const finish = new ShaderPass({
+    uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uSpeed: { value: 0 } },
+    vertexShader: UV_VERTEX_SHADER,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform float uTime, uSpeed;
+      varying vec2 vUv;
+      float random(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }
+      void main() {
+        vec2 fromCentre = vUv - 0.5;
+
+        // split RGB: red and blue shift slightly apart toward the edges, more when moving fast
+        float amount = (0.0012 + uSpeed * 0.005) * (0.4 + length(fromCentre) * 1.8);
+        float jitter = random(vec2(floor(vUv.y * 220.0), floor(uTime * 18.0)));
+        vec2 offset = fromCentre * amount + vec2((jitter - 0.5) * amount * 0.7, 0.0);
+        vec3 color = vec3(texture2D(tDiffuse, vUv + offset).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - offset).b);
+
+        // film grain
+        color += (random(vUv * vec2(1717.0, 913.0) + fract(uTime * 7.0)) - 0.5) * 0.03;
+
+        // vignette
+        float d = length(fromCentre * vec2(1.0, 0.82));
+        color *= 1.0 - smoothstep(0.28 - uSpeed * 0.14, 0.92 - uSpeed * 0.32, d) * 0.88;
+
+        gl_FragColor = vec4(max(color, 0.0), 1.0);
+      }`,
+  });
+  composer.addPass(finish);
+  composer.addPass(new OutputPass());   // tone mapping and colour conversion for the screen
+
+  return { composer, uniforms: finish.uniforms };   // ShaderPass keeps its own copy of the uniforms
+}
+
+
+/* ---------------------------------------------------------------------
+   8. The garden: put it all together, handle input, run the frame loop.
+   Returns { dispose } to stop it and free memory.
+   --------------------------------------------------------------------- */
+function startGarden() {
+  // ---- renderer (if WebGL isn't available, show a plain background and the interface)
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+  } catch (error) {
+    document.body.classList.add('no-webgl');
+    page.loader.classList.add('gone');
+    page.ui.classList.add('on');
+    return { dispose() {} };
+  }
+  const pixelRatio = Math.min(devicePixelRatio || 1, SETTINGS.maxPixelRatio);
+  renderer.setPixelRatio(pixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setClearColor(0x000000, 1);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  page.valley.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(new THREE.Color('#03070a'), 0.0105);
+  const camera = new THREE.PerspectiveCamera(64, innerWidth / innerHeight, 0.1, 2200);
+
+  // ---- build the world
+  const rand = seededRandom(SETTINGS.layoutSeed);
+  const path = buildPath();
+  const shared = {                        // values several shaders read, updated each frame
+    uTime: { value: 0 },
+    uIntro: { value: 0 },                 // 0 → 1 while the flowers grow in
+    uCam: { value: new THREE.Vector3() },
+    uScale: { value: 1 },                 // turns a world size into pixels (per unit of distance)
+    uPR: { value: pixelRatio },
+  };
+  buildTerrain(scene);
+  const sky = buildSky(scene, rand, shared);
+  const moon = buildMoon(scene, path, shared);
+  const flowers = buildFlowers(scene, path, rand, shared, pixelRatio);
+  const wanderer = buildWanderer(scene, path);
+  const rays = buildLightRays(scene, path, rand, shared);
+  buildDust(scene, rand, shared);
+  const post = buildPostProcessing(renderer, scene, camera, pixelRatio);
+
+  // ---- every listener goes through `listen`, so dispose() can remove them all at once
+  const listeners = new AbortController();
+  const listen = (target, type, handler, options = {}) =>
+    target.addEventListener(type, handler, { ...options, signal: listeners.signal });
+
+  // ---- window size: portrait phones get a wider view, and flowers fade in closer
+  function resize() {
+    const w = innerWidth, h = innerHeight, portrait = w < h;
+    camera.aspect = w / h;
+    camera.fov = portrait ? 78 : 64;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    post.composer.setSize(w, h);
+    shared.uScale.value = (h * pixelRatio) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    flowers.uniforms.uAspect.value = w / h;
+    flowers.uniforms.uNear.value.set(portrait ? 0.45 : 1.2, portrait ? 2.2 : 5);
+  }
+  listen(window, 'resize', resize);
+  resize();
+
+  // ---- state
+  const motion = {
+    target: 0, current: 0, previous: 0,   // distance along the path
+    speed: 0,                             // 0–1, drives the vignette and shimmer
+    walk: 0,                              // -1 / 0 / 1 while an arrow button is held
+    scatter: 0, scatterTarget: 0,         // 0 → 1 while the scatter dot is hovered or held
+  };
+  const look = {                          // drag-to-look, added on top of the path direction
+    yaw: 0, pitch: 0, yawTarget: 0, pitchTarget: 0,
+    yawSpeed: 0, pitchSpeed: 0,           // for the short glide after a flick
+    drag: null, lastMove: 0, lastTap: 0,
+  };
+  const pointer = {
+    target: new THREE.Vector2(), smooth: new THREE.Vector2(), on: 0,       // cursor or first finger
+    target2: new THREE.Vector2(), smooth2: new THREE.Vector2(), on2: 0,    // second finger
+    tiltTarget: new THREE.Vector2(), tilt: new THREE.Vector2(),             // mouse only: the camera leans toward it
+    isTouch: false,
+  };
+  const PITCH_MIN = -0.75, PITCH_MAX = 1.05;
+  const clampPitch = v => Math.min(PITCH_MAX, Math.max(PITCH_MIN, v));
+  const toScreen = (e, out) => out.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+
+  // ---- mouse wheel: rolling the wheel forward walks forward
+  listen(window, 'wheel', e => {
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1;   // lines / pages → pixels
+    motion.target -= e.deltaY * unit * SETTINGS.wheelSpeed;
+  }, { passive: false });
+
+  // ---- keyboard: arrows, page keys and space walk; F toggles the FPS readout
+  listen(window, 'keydown', e => {
+    const step = { ArrowUp: 6, PageUp: 20, ' ': 12, ArrowDown: -6, PageDown: -20 }[e.key];
+    if (step && e.target === document.body) {
+      e.preventDefault();
+      motion.target += step;
+    }
+    if (e.key === 'f' || e.key === 'F') toggleFps();
+  });
+
+  // ---- cursor: pushes nearby flowers and leans the camera a little
+  listen(window, 'pointermove', e => {
+    if (e.pointerType === 'touch') return;
+    toScreen(e, pointer.target);
+    pointer.on = 1;
+    pointer.tiltTarget.copy(pointer.target);
+  });
+  listen(document.documentElement, 'pointerleave', () => { pointer.on = 0; });
+
+  // ---- fingers: up to two push flowers (they don't lean the camera)
+  const onTouches = e => {
+    const first = e.touches[0], second = e.touches[1];
+    if (first) { toScreen(first, pointer.target); pointer.on = 1; } else pointer.on = 0;
+    if (second) {
+      toScreen(second, pointer.target2);
+      if (!pointer.on2) pointer.smooth2.copy(pointer.target2);   // start where the finger lands
+      pointer.on2 = 1;
+    } else pointer.on2 = 0;
+  };
+  listen(window, 'touchstart', onTouches, { passive: true });
+  listen(window, 'touchmove', onTouches, { passive: true });
+  listen(window, 'touchend', onTouches);
+  listen(window, 'touchcancel', onTouches);
+
+  // ---- drag (mouse or one finger) to look around; a flick glides briefly;
+  //      double-click or double-tap faces forward again
+  const recenter = () => {
+    look.yawSpeed = look.pitchSpeed = 0;
+    look.yawTarget = Math.round(look.yaw / (Math.PI * 2)) * Math.PI * 2;
+    look.pitchTarget = 0;
+  };
+  listen(window, 'pointerdown', e => { pointer.isTouch = e.pointerType === 'touch'; }, { capture: true });
+  listen(window, 'pointerdown', e => {
+    if (e.target.closest('a, button') || (e.pointerType === 'mouse' && e.button !== 0) || look.drag) return;
+    look.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' };
+    look.yawSpeed = look.pitchSpeed = 0;
+    look.lastMove = performance.now();
+    document.documentElement.classList.add('dragging');
+    if (e.pointerType === 'touch') {
+      const now = performance.now();
+      if (now - look.lastTap < 300) recenter();
+      look.lastTap = now;
+    }
+  });
+  listen(window, 'pointermove', e => {
+    const drag = look.drag;
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    // radians per pixel: dragging the full height of the window turns about 125°
+    const perPixel = ((1.15 * Math.PI) / innerHeight) * (64 / 90) * 0.85 * (drag.touch ? 1.05 : 1);
+    const now = performance.now(), seconds = Math.max(8, now - look.lastMove) / 1000;
+    look.lastMove = now;
+    look.yawTarget += dx * perPixel;
+    look.pitchTarget = clampPitch(look.pitchTarget + dy * perPixel);
+    // remember how fast it was moving, for a short glide after letting go
+    look.yawSpeed += ((dx * perPixel) / seconds * 0.45 - look.yawSpeed) * 0.35;
+    look.pitchSpeed += ((dy * perPixel) / seconds * 0.45 - look.pitchSpeed) * 0.35;
+  });
+  const endDrag = e => {
+    if (!look.drag || e.pointerId !== look.drag.id) return;
+    if (performance.now() - look.lastMove > 60) look.yawSpeed = look.pitchSpeed = 0;   // held still before letting go: no glide
+    look.drag = null;
+    document.documentElement.classList.remove('dragging');
+  };
+  listen(window, 'pointerup', endDrag);
+  listen(window, 'pointercancel', endDrag);
+  listen(window, 'dblclick', e => { if (!e.target.closest('a, button')) recenter(); });
+
+  // ---- walk buttons: tap for a step, hold to keep walking
+  [[page.forward, 1], [page.back, -1]].forEach(([button, direction]) => {
+    const release = () => {
+      if (motion.walk === direction) motion.walk = 0;
+      button.classList.remove('held');
+    };
+    listen(button, 'pointerdown', e => {
+      e.preventDefault();
+      button.setPointerCapture?.(e.pointerId);
+      motion.walk = direction;
+      motion.target += direction * 4;
+      button.classList.add('held');
+    });
+    listen(button, 'pointerup', release);
+    listen(button, 'pointercancel', release);
+    listen(button, 'lostpointercapture', release);
+    listen(button, 'click', e => { if (e.detail === 0) motion.target += direction * 8; });   // keyboard Enter / Space
+    listen(button, 'contextmenu', e => e.preventDefault());
+  });
+
+  // ---- scatter dot: hover (or hold, on a phone) to stop, scatter the flowers and muffle the sound
+  const setScatter = on => {
+    motion.scatterTarget = on ? 1 : 0;
+    ambient.muffle(on);
+  };
+  listen(page.scatter, 'pointerenter', () => setScatter(true));
+  listen(page.scatter, 'pointerleave', () => setScatter(false));
+  listen(page.scatter, 'focus', () => { if (page.scatter.matches(':focus-visible')) setScatter(true); });
+  listen(page.scatter, 'blur', () => setScatter(false));
+  listen(page.scatter, 'contextmenu', e => e.preventDefault());
+
+  // ---- frames-per-second readout: #fps in the address, or press F
+  let fpsForced = false, fpsFrames = 0, fpsSince = performance.now();
+  const updateFpsVisibility = () => { page.fps.hidden = !(fpsForced || location.hash === '#fps'); };
+  function toggleFps() { fpsForced = !fpsForced; updateFpsVisibility(); }
+  listen(window, 'hashchange', updateFpsVisibility);
+  updateFpsVisibility();
+
+  // ---- frame loop
+  const timer = new THREE.Timer();
+  timer.connect?.(document);              // pauses cleanly while the tab is hidden
+  const UP = new THREE.Vector3(0, 1, 0);
+  const onPath = new THREE.Vector3(), ahead = new THREE.Vector3(), aim = new THREE.Vector3(), right = new THREE.Vector3();
+  const easeOut = x => 1 - Math.pow(1 - x, 3);
+  // fraction of the way to move toward a target this frame: same feel at any frame rate
+  const approach = (rate, dt) => 1 - Math.exp(-rate * dt);
+  let startTime = null, firstFrame = true, uiShown = false, frameId = 0;
+
+  function frame(now) {
+    timer.update(now);
+    const dt = Math.min(timer.getDelta(), 0.05);
+    const time = timer.getElapsed();
+    if (startTime === null) startTime = time;
+    const intro = Math.min(1, (time - startTime) / SETTINGS.introSeconds);
+    const introEased = easeOut(intro);
+
+    // scatter eases in a little slower than it eases out
+    motion.scatter += (motion.scatterTarget - motion.scatter) * approach(motion.scatterTarget ? 1.4 : 1.8, dt);
+
+    // walking: idle drift plus a held arrow; scattering eases it to a stop
+    motion.target += dt * SETTINGS.driftSpeed * (1 - motion.scatter) * introEased + motion.walk * dt * SETTINGS.walkSpeed;
+    if (motion.scatter > 0.01) motion.target += (motion.current - motion.target) * approach(3 * motion.scatter, dt);
+    motion.current += (motion.target - motion.current) * approach(2.4, dt);
+    const velocity = Math.abs(motion.current - motion.previous) / Math.max(dt, 1e-4);
+    motion.previous = motion.current;
+    motion.speed += (Math.min(1, velocity / 30) - motion.speed) * approach(3, dt);
+
+    // cursor and fingers
+    const fu = flowers.uniforms;
+    pointer.smooth.lerp(pointer.target, approach(pointer.isTouch ? 16 : 11, dt));
+    pointer.smooth2.lerp(pointer.target2, approach(16, dt));
+    pointer.tilt.lerp(pointer.tiltTarget, approach(4, dt));
+    fu.uMouse.value.copy(pointer.smooth);
+    fu.uMouseOn.value += (pointer.on - fu.uMouseOn.value) * approach(3, dt);
+    fu.uMouse2.value.copy(pointer.smooth2);
+    fu.uMouseOn2.value += (pointer.on2 - fu.uMouseOn2.value) * approach(4, dt);
+
+    // camera: on the path at eye height (during the intro: higher up and further back), aimed ahead
+    const s = motion.current - (1 - introEased) * 45;
+    path.at(s, onPath);
+    path.at(s + SETTINGS.lookAhead, ahead);
+    right.set(ahead.x - onPath.x, 0, ahead.z - onPath.z).normalize().cross(UP);
+    camera.position.set(
+      onPath.x,
+      onPath.y + SETTINGS.eyeHeight + (1 - introEased) * 34 + Math.sin(time * 0.5) * 0.08,   // tiny breathing bob
+      onPath.z,
+    );
+    aim.copy(ahead)
+      .addScaledVector(UP, 1.4 - (1 - introEased) * 6 + pointer.tilt.y * 1.8)
+      .addScaledVector(right, pointer.tilt.x * 3.2);
+    camera.lookAt(aim);
+
+    // drag-to-look on top, with the short glide after a flick
+    if (!look.drag && (look.yawSpeed || look.pitchSpeed)) {
+      look.yawTarget += look.yawSpeed * dt;
+      look.pitchTarget = clampPitch(look.pitchTarget + look.pitchSpeed * dt);
+      const friction = Math.exp(-dt * 7.5);
+      look.yawSpeed *= friction;
+      look.pitchSpeed *= friction;
+      if (Math.abs(look.yawSpeed) + Math.abs(look.pitchSpeed) < 0.01) look.yawSpeed = look.pitchSpeed = 0;
+    }
+    const follow = approach(look.drag ? 22 : 12, dt);
+    look.yaw += (look.yawTarget - look.yaw) * follow;
+    look.pitch += (look.pitchTarget - look.pitch) * follow;
+    camera.rotateOnWorldAxis(UP, look.yaw);
+    camera.rotateX(look.pitch);
+    camera.rotateZ(-pointer.tilt.x * 0.025);
+
+    // everything that follows the camera or the clock
+    shared.uTime.value = time;
+    shared.uIntro.value = intro;
+    shared.uCam.value.copy(camera.position);
+    fu.uDisperse.value = motion.scatter * motion.scatter * (3 - 2 * motion.scatter);   // smoothstep
+    sky.follow(camera.position);
+    moon.follow(camera.position);
+    wanderer.update(camera.position, time);
+    rays.update(camera.position, introEased * (1 - motion.scatter * 0.6));
+    flowers.cull(camera.position);
+    post.uniforms.uTime.value = time;
+    post.uniforms.uSpeed.value = motion.speed;
+
+    post.composer.render();
+
+    // FPS readout, updated twice a second
+    fpsFrames++;
+    if (now - fpsSince >= 500) {
+      if (!page.fps.hidden) page.fps.textContent = Math.round((fpsFrames * 1000) / (now - fpsSince)) + ' FPS';
+      fpsFrames = 0;
+      fpsSince = now;
+    }
+
+    // hide the loader after the first frame; show the interface near the end of the intro
+    if (firstFrame) {
+      firstFrame = false;
+      requestAnimationFrame(() => page.loader.classList.add('gone'));
+    }
+    if (!uiShown && intro >= 0.92) {
+      uiShown = true;
+      page.ui.classList.add('on');
+    }
+
+    frameId = requestAnimationFrame(frame);
+  }
+  frameId = requestAnimationFrame(frame);
+
+  // ---- clean-up: stop everything and free graphics memory
+  // (not needed for separate pages, but ready if rooms ever share one page)
+  function dispose() {
+    cancelAnimationFrame(frameId);
+    listeners.abort();
+    timer.dispose?.();
+    scene.traverse(object => {
+      object.geometry?.dispose();
+      const materials = [].concat(object.material || []);
+      for (const material of materials) {
+        for (const value of Object.values(material)) if (value?.isTexture) value.dispose();
+        material.dispose();
+      }
+    });
+    post.composer.dispose();
+    renderer.dispose();
+    renderer.domElement.remove();
+    ambient.dispose();
+  }
+
+  return { dispose };
+}
+
+
+// ---- go: let the loading dot paint first, then build the garden
+// (window.garden.dispose() stops it and frees its memory)
+if (THREE) {
+  requestAnimationFrame(() => setTimeout(() => {
+    clearTimeout(slowTimer);
+    page.slowNote.hidden = true;
+    window.garden = startGarden();
+  }, 30));
+}
 </script>
 </body>
 </html>
